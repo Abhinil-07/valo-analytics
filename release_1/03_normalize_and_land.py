@@ -69,12 +69,10 @@ CREATE TABLE IF NOT EXISTS {CONTROL_TABLE} (
     ingestion_status STRING,
     source STRING,
     load_type STRING,
-    source_file STRING,
-    provenance STRING,
     error_message STRING
 )
 USING DELTA
-COMMENT 'Tracks canonical match landing state, provenance, and idempotency'
+COMMENT 'Tracks canonical match landing state and idempotency'
 """)
 
 # COMMAND ----------
@@ -263,7 +261,6 @@ for file_path, default_source, load_type in all_raw_files:
                 os.replace(temp_file, target_file)
 
                 # Record SUCCESS in Delta control table
-                prov = json.dumps({"source": final_source, "source_file": file_path}).replace("'", "''")
                 spark.sql(f"""
                 MERGE INTO {CONTROL_TABLE} AS target
                 USING (SELECT '{match_id}' AS match_id) AS source
@@ -276,12 +273,10 @@ for file_path, default_source, load_type in all_raw_files:
                         target.ingestion_status = 'SUCCESS',
                         target.source = '{final_source}',
                         target.load_type = '{load_type}',
-                        target.source_file = '{file_path}',
-                        target.provenance = '{prov}',
                         target.error_message = NULL
                 WHEN NOT MATCHED THEN
-                    INSERT (match_id, match_date, landing_path, ingestion_timestamp, ingestion_status, source, load_type, source_file, provenance, error_message)
-                    VALUES ('{match_id}', DATE('{match_date.isoformat()}'), '{target_file}', current_timestamp(), 'SUCCESS', '{final_source}', '{load_type}', '{file_path}', '{prov}', NULL)
+                    INSERT (match_id, match_date, landing_path, ingestion_timestamp, ingestion_status, source, load_type, error_message)
+                    VALUES ('{match_id}', DATE('{match_date.isoformat()}'), '{target_file}', current_timestamp(), 'SUCCESS', '{final_source}', '{load_type}', NULL)
                 """)
 
                 landed_count += 1
