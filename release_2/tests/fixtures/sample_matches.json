@@ -1,0 +1,93 @@
+{
+  "status": 200,
+  "data": [
+    {
+      "is_available": true,
+      "metadata": {
+        "map": "Ascent",
+        "game_version": "release-08.00-shipping-1-2182046",
+        "game_length": 2248592,
+        "game_start": 1705363200,
+        "game_start_patched": "Tuesday, January 16, 2024 12:00 AM",
+        "rounds_played": 22,
+        "mode": "Competitive",
+        "mode_id": "competitive",
+        "queue": "Standard",
+        "season_id": "e8a1",
+        "platform": "PC",
+        "premier_info": {},
+        "region": "na",
+        "cluster": "North Virginia",
+        "matchid": "ab4a85fb-8f9e-4298-b22e-b2a3648cb58b"
+      },
+      "players": {
+        "all_players": [
+          {
+            "puuid": "player-1-uuid",
+            "name": "TenZ",
+            "tag": "0001",
+            "team": "Blue",
+            "character": "Jett"
+          }
+        ]
+      },
+      "observers": [],
+      "coaches": [],
+      "teams": {
+        "red": { "has_won": false, "rounds_won": 10, "rounds_lost": 12 },
+        "blue": { "has_won": true, "rounds_won": 12, "rounds_lost": 10 }
+      },
+      "rounds": [
+        {
+          "round_num": 1,
+          "winning_team": "Blue",
+          "end_type": "Eliminated"
+        }
+      ]
+    },
+    {
+      "is_available": true,
+      "metadata": {
+        "map": "Bind",
+        "game_version": "release-08.00-shipping-1-2182046",
+        "game_length": 1950000,
+        "game_start": 1705449600,
+        "game_start_patched": "Wednesday, January 17, 2024 12:00 AM",
+        "rounds_played": 20,
+        "mode": "Competitive",
+        "mode_id": "competitive",
+        "queue": "Standard",
+        "season_id": "e8a1",
+        "platform": "PC",
+        "premier_info": {},
+        "region": "na",
+        "cluster": "North Virginia",
+        "matchid": "1391571f-c2bc-4589-9dac-01b02b3563bc"
+      },
+      "players": {
+        "all_players": [
+          {
+            "puuid": "player-1-uuid",
+            "name": "TenZ",
+            "tag": "0001",
+            "team": "Red",
+            "character": "Omen"
+          }
+        ]
+      },
+      "observers": [],
+      "coaches": [],
+      "teams": {
+        "red": { "has_won": true, "rounds_won": 13, "rounds_lost": 7 },
+        "blue": { "has_won": false, "rounds_won": 7, "rounds_lost": 13 }
+      },
+      "rounds": [
+        {
+          "round_num": 1,
+          "winning_team": "Red",
+          "end_type": "Bomb defused"
+        }
+      ]
+    }
+  ]
+}

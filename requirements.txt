@@ -1,0 +1,5 @@
+# Core dependencies for Valorant Ingestion and Analytics
+requests>=2.31.0
+pydantic>=2.0.0
+pytest>=8.0.0
+python-dateutil>=2.8.2
