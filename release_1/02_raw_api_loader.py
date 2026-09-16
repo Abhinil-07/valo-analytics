@@ -15,26 +15,17 @@ from datetime import datetime, timezone
 import requests
 
 # ==============================================================================
-# CONFIGURATION
+# CONFIGURATION (Hardcoded for simple execution)
 # ==============================================================================
-CATALOG = "valorant"
-RAW_SCHEMA = "raw"
-VOLUME = "data"
-
-# Player query parameters
-REGION = "ap"
+API_KEY = "HDEV-c897243f-3b2e-4962-b1f4-4f9f9e272b44"
 PUUID = "59bae8f3-025c-5dcc-9a1c-c903279e4145"
+REGION = "ap"
 MODE = "competitive"
 SIZE = 5
 
-# Retrieve API key securely (never hardcoded in source)
-try:
-    API_KEY = dbutils.secrets.get("valorant_secrets", "henrik_api_key")
-except Exception:
-    API_KEY = os.getenv("HENRIKDEV_API_KEY") or os.getenv("HENRIK_API_KEY")
-
-if not API_KEY:
-    raise RuntimeError("API Key not found in Databricks secrets or environment variables.")
+CATALOG = "valorant"
+RAW_SCHEMA = "raw"
+VOLUME = "data"
 
 RAW_VOLUME_PATH = f"/Volumes/{CATALOG}/{RAW_SCHEMA}/{VOLUME}"
 API_TARGET_DIR = f"{RAW_VOLUME_PATH}/api"
