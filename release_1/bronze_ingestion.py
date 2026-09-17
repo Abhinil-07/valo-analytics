@@ -274,17 +274,44 @@ print("Successfully verified all 9 Bronze Delta table DDLs.")
 
 # COMMAND ----------
 # MAGIC %md
-# MAGIC ### Step 2: Load Landing Match JSONs
+# MAGIC ### Step 2: Identify Pending Matches from Ingestion Control (Incremental)
 
 # COMMAND ----------
-json_files = glob.glob(f"{LANDING_VOLUME_PATH}/*/*/*/*.json")
-if not json_files:
-    json_files = glob.glob(f"{LANDING_VOLUME_PATH}/**/*.json", recursive=True)
+CONTROL_TABLE = f"{CATALOG}.landing.ingestion_control"
 
-print(f"Discovered {len(json_files)} landing match file(s).")
+# Query matches already processed across all 9 Bronze tables
+# A match is considered fully processed in Bronze if it exists in bronze_match
+try:
+    existing_bronze_df = spark.sql(f"SELECT DISTINCT match_id FROM {CATALOG}.{BRONZE_SCHEMA}.bronze_match")
+    already_processed_ids = {row["match_id"] for row in existing_bronze_df.collect()}
+except Exception:
+    already_processed_ids = set()
+
+# Query successful landing files from ingestion_control
+control_df = spark.sql(f"""
+    SELECT match_id, landing_path 
+    FROM {CONTROL_TABLE} 
+    WHERE ingestion_status = 'SUCCESS'
+""")
+landing_records = control_df.collect()
+
+# Filter to pending files only
+pending_matches = [
+    (row["match_id"], row["landing_path"])
+    for row in landing_records
+    if row["match_id"] not in already_processed_ids
+]
+
+print(f"Total Landing Matches: {len(landing_records)}")
+print(f"Already in Bronze:     {len(already_processed_ids)}")
+print(f"Pending to Ingest:     {len(pending_matches)}")
+
+if not pending_matches:
+    print("No pending matches found for Bronze. All 9 tables are 100% up to date!")
+    dbutils.notebook.exit("Success: 0 new matches")
 
 matches_data = []
-for file_path in json_files:
+for mid, file_path in pending_matches:
     try:
         with open(file_path, "r", encoding="utf-8") as f:
             content = json.load(f)
@@ -303,7 +330,7 @@ for m in matches_data:
         unique_matches[mid] = m
 
 matches_to_process = list(unique_matches.values())
-print(f"Loaded {len(matches_to_process)} unique match(es) for Bronze transformation.")
+print(f"Loaded {len(matches_to_process)} pending match(es) for Bronze transformation.")
 
 # COMMAND ----------
 # MAGIC %md

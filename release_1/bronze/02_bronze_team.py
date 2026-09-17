@@ -47,17 +47,43 @@ COMMENT 'Source-aligned team performance: 1 row per team per match'
 
 # COMMAND ----------
 # MAGIC %md
-# MAGIC ### Step 2: Load Match JSONs from Landing Volume
+# MAGIC ### Step 2: Identify Pending Matches from Ingestion Control (Incremental)
 
 # COMMAND ----------
-json_files = glob.glob(f"{LANDING_VOLUME_PATH}/*/*/*/*.json")
-if not json_files:
-    json_files = glob.glob(f"{LANDING_VOLUME_PATH}/**/*.json", recursive=True)
+CONTROL_TABLE = f"{CATALOG}.landing.ingestion_control"
 
-print(f"Found {len(json_files)} landing JSON file(s).")
+# Query matches already processed in this Bronze table
+try:
+    existing_bronze_df = spark.sql(f"SELECT DISTINCT match_id FROM {TARGET_TABLE}")
+    already_processed_ids = {row["match_id"] for row in existing_bronze_df.collect()}
+except Exception:
+    already_processed_ids = set()
+
+# Query successful landing files from ingestion_control
+control_df = spark.sql(f"""
+    SELECT match_id, landing_path 
+    FROM {CONTROL_TABLE} 
+    WHERE ingestion_status = 'SUCCESS'
+""")
+landing_records = control_df.collect()
+
+# Filter to pending files only
+pending_matches = [
+    (row["match_id"], row["landing_path"])
+    for row in landing_records
+    if row["match_id"] not in already_processed_ids
+]
+
+print(f"Total Landing Matches: {len(landing_records)}")
+print(f"Already in Bronze:     {len(already_processed_ids)}")
+print(f"Pending to Ingest:     {len(pending_matches)}")
+
+if not pending_matches:
+    print(f"No pending matches for {TARGET_TABLE}. Bronze is up to date!")
+    dbutils.notebook.exit("Success: 0 new matches")
 
 matches_data = []
-for file_path in json_files:
+for mid, file_path in pending_matches:
     try:
         with open(file_path, "r", encoding="utf-8") as f:
             content = json.load(f)
@@ -76,7 +102,7 @@ for m in matches_data:
     if mid and mid not in unique_matches:
         unique_matches[mid] = m
 
-print(f"Loaded {len(unique_matches)} unique match object(s).")
+print(f"Loaded {len(unique_matches)} pending match object(s) to process.")
 
 # COMMAND ----------
 # MAGIC %md
