@@ -69,8 +69,7 @@ The Bronze layer preserves the exact structure and grain of the raw match payloa
 | game_length | INT | Total match duration in seconds |
 | game_start | BIGINT | Epoch millisecond timestamp of match start |
 | game_start_patched | STRING | Human-readable UTC timestamp of match start |
-| 
-ounds_played | INT | Total rounds played in the match |
+| rounds_played | INT | Total rounds played in the match |
 | mode | STRING | Game mode (e.g., 'Competitive', 'Custom') |
 | mode_id | STRING | Internal Riot mode identifier |
 | queue | STRING | Matchmaking queue name |
@@ -428,14 +427,12 @@ ame#tag (e.g., 'Hiroshi#nohar') |
 | map_name | STRING | NO | Map played (joins to dim_map) |
 | game_duration_seconds | INT | YES | Match duration in seconds |
 | game_duration_minutes | DOUBLE | YES | Match duration in minutes |
-| 
-ounds_played | INT | NO | Total rounds played in match |
+| rounds_played | INT | NO | Total rounds played in match |
 | is_overtime | BOOLEAN | NO | True if match extended past 24 rounds |
 | our_team_side | STRING | YES | Which side your squad played on ('Red' or 'Blue') |
 | our_team_rounds_won | INT | YES | Rounds won by your team |
 | opponent_rounds_won | INT | YES | Rounds won by opponent team |
-| 
-ound_differential | INT | YES | Round differential (+/-) |
+| round_differential | INT | YES | Round differential (+/-) |
 | match_outcome | STRING | YES | Match result: 'VICTORY', 'DEFEAT', or 'DRAW' |
 | is_our_team_win | BOOLEAN | YES | True if your squad won the match |
 | server_cluster | STRING | YES | Datacenter cluster (e.g. 'Mumbai') |
@@ -444,10 +441,43 @@ ound_differential | INT | YES | Round differential (+/-) |
 
 ---
 
+### 3.6 `valorant.silver.fact_round`
+* **Purpose:** The core event heartbeat of the match (SRS Section 9, 10, 15, 23). Enriches raw round summaries with:
+  1. **Attack/Defense Attribution:** Determines `attack_team`, `defense_team`, and maps to `our_team_side` (`Attack` vs `Defense`).
+  2. **Our Team Result:** Derives `is_our_team_win` (did your squad win the round?).
+  3. **Spike & Plant Details:** Captures `bomb_planted`, `bomb_defused`, and `plant_site` (`A`, `B`, `C`).
+  4. **Economy & Buy Tiers:** Computes `our_team_loadout_value`, `opponent_loadout_value`, and classifies buy tiers (`Pistol Round`, `Eco`, `Semi-Buy`, `Full Buy`, and `is_thrifty`).
+* **Grain:** 1 row per round per match.
+* **Composite Primary Key:** `match_id` + `round_number`
+* **Source Tables:** `valorant.bronze.bronze_round`, `valorant.bronze.bronze_plant_event`, `valorant.bronze.bronze_round_player_stats`, `valorant.silver.dim_match`
+* **Write Strategy:** Incremental Delta `MERGE` (Upsert on `match_id` + `round_number`)
+
+| Column Name | Data Type | Nullable | Description |
+| :--- | :--- | :--- | :--- |
+| `match_id` | `STRING` | NO | Unique match GUID (Composite PK) |
+| `round_number` | `INT` | NO | Round number sequence 1, 2, 3... (Composite PK) |
+| `round_winner` | `STRING` | YES | Winning team color (`'Red'` or `'Blue'`) |
+| `end_type` | `STRING` | YES | Round conclusion (`'Eliminated'`, `'Bomb defused'`, `'Bomb detonated'`) |
+| `attack_team` | `STRING` | YES | Team attacking this round (`'Red'` or `'Blue'`) |
+| `defense_team` | `STRING` | YES | Team defending this round (`'Red'` or `'Blue'`) |
+| `our_team_side` | `STRING` | YES | Your squad's side this round (`'Attack'` or `'Defense'`) |
+| `is_our_team_win` | `BOOLEAN` | YES | True if your squad won this round |
+| `bomb_planted` | `BOOLEAN` | YES | True if spike was planted |
+| `bomb_defused` | `BOOLEAN` | YES | True if spike was defused |
+| `plant_site` | `STRING` | YES | Plant site (`'A'`, `'B'`, `'C'`, or null) |
+| `our_team_loadout_value` | `INT` | YES | Total credits value of your squad's equipment |
+| `opponent_loadout_value` | `INT` | YES | Total credits value of opponent squad's equipment |
+| `our_buy_tier` | `STRING` | YES | Squad buy tier (`'Pistol Round'`, `'Eco'`, `'Semi-Buy'`, `'Full Buy'`) |
+| `opponent_buy_tier` | `STRING` | YES | Opponent buy tier (`'Pistol Round'`, `'Eco'`, `'Semi-Buy'`, `'Full Buy'`) |
+| `is_thrifty` | `BOOLEAN` | YES | True if your squad won with >= 5,000 credit loadout deficit |
+| `updated_at` | `TIMESTAMP` | NO | Record ETL update timestamp |
+
+---
+
 ### Remaining Planned Silver Tables
-5. **act_round** — Round outcomes enriched with ttack_team, defense_team, our_team_side, and is_our_team_win.
-6. **act_match_player** — Match-level player scorecard (K/D, ADR, Headshot %, Combat Score).
-7. **act_round_player** — Round-level player stats with assigned side (Attack/Defense), weapon buy classification, and survival status.
-8. **act_kill_event** — Kill timeline with chronological is_opening_kill and is_opening_death flags.
-9. **act_damage_event** — Attacker-to-receiver damage exchanges with team role tagging.
-10. **act_spike_event** — Unified plant and defuse facts for post-plant analytics.
+5. **fact_round** — Round outcomes enriched with ttack_team, defense_team, our_team_side, and is_our_team_win.
+6. **fact_match_player** — Match-level player scorecard (K/D, ADR, Headshot %, Combat Score).
+7. **fact_round_player** — Round-level player stats with assigned side (Attack/Defense), weapon buy classification, and survival status.
+8. **fact_kill_event** — Kill timeline with chronological is_opening_kill and is_opening_death flags.
+9. **fact_damage_event** — Attacker-to-receiver damage exchanges with team role tagging.
+10. **fact_spike_event** — Unified plant and defuse facts for post-plant analytics.
