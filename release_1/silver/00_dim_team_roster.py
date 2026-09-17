@@ -57,9 +57,9 @@ COMMENT 'Official team roster configuration table for OUR_TEAM resolution and pl
 roster_data = [
     (
         "c38ffa2e-ce9d-5d95-9399-3a89c6af6b16",
-        "Abhinav (Agamemnon)",
+        "Agamemnon",
         "Agamemnon#Lord",
-        "Captain / IGL",
+        "Duelist",
         True,   # is_team_owner
         True    # is_active_roster
     ),
@@ -67,7 +67,7 @@ roster_data = [
         "59bae8f3-025c-5dcc-9a1c-c903279e4145",
         "systemctl",
         "systemctl start#4575",
-        "Flex",
+        "IGL",
         False,
         True
     ),

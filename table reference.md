@@ -330,9 +330,9 @@ ound_number | INT | Round number |
 | Column Name | Data Type | Nullable | Description |
 | :--- | :--- | :--- | :--- |
 | player_puuid | STRING | NO | Unique Riot player PUUID (Primary Key) |
-| player_nickname | STRING | YES | Real-life name / Friendly callsign (e.g. 'Abhinav (Agamemnon)') |
+| player_nickname | STRING | YES | Real-life name / Friendly callsign (e.g. 'Agamemnon') |
 | default_display_name | STRING | YES | Default in-game name and tag |
-| 	eam_role | STRING | YES | In-game role (e.g. 'Captain / IGL', 'Flex', 'Core') |
+| 	eam_role | STRING | YES | In-game role (e.g. 'Duelist', 'IGL', 'Core') |
 | is_team_owner | BOOLEAN | NO | True for team owner/captain (Agamemnon) |
 | is_active_roster | BOOLEAN | NO | True if currently an active squad member |
 | created_at | TIMESTAMP | NO | Creation timestamp |
