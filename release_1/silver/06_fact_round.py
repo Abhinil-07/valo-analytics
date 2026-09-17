@@ -108,6 +108,7 @@ round_df = spark.table(SOURCE_ROUND).select(
 plant_df = spark.table(SOURCE_PLANT).select(
     "match_id",
     "round_number",
+    "plant_event_sequence",
     F.col("plant_site"),
     F.initcap(F.col("player_team")).alias("planter_team")
 )
