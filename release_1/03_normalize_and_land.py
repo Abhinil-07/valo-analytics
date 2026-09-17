@@ -196,13 +196,17 @@ print("Normalization functions compiled.")
 # MAGIC ### Step 3: Discover Raw Source Files
 
 # COMMAND ----------
-historical_files = glob.glob(f"{RAW_HISTORICAL_PATH}/**/*.json", recursive=True)
+# Historical ingestion is one-time backfill (already completed).
+# Uncomment historical_files only if a full historical re-land is needed.
+# historical_files = glob.glob(f"{RAW_HISTORICAL_PATH}/**/*.json", recursive=True)
+historical_files = []
+
 api_files = glob.glob(f"{RAW_API_PATH}/**/*.json", recursive=True)
 
 all_raw_files = [(f, "github", "historical") for f in historical_files] + \
                 [(f, "api", "incremental") for f in api_files]
 
-print(f"Discovered {len(historical_files)} historical raw file(s).")
+print(f"Discovered {len(historical_files)} historical raw file(s) (Skipped - already landed).")
 print(f"Discovered {len(api_files)} live API raw file(s).")
 print(f"Total raw source files to process: {len(all_raw_files)}")
 
