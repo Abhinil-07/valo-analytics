@@ -158,7 +158,7 @@ blue_loadout_df = team_loadout_df.filter(F.col("team") == "Blue").select(
 # 5. Get our_team_side for the match from dim_match
 match_side_df = spark.table(SOURCE_DIM_MATCH).select(
     F.col("match_id"),
-    F.initcap(F.col("our_team_side")).alias("our_team_color")  # 'Red' or 'Blue'
+    F.initcap(F.col("our_team_color")).alias("our_team_color")  # 'Red' or 'Blue'
 )
 
 # 6. Join All Pieces and Compute Derived Fields

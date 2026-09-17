@@ -64,7 +64,7 @@ CREATE TABLE IF NOT EXISTS {TARGET_TABLE} (
     game_duration_minutes DOUBLE,
     rounds_played INT NOT NULL,
     is_overtime BOOLEAN NOT NULL,
-    our_team_side STRING,
+    our_team_color STRING,
     our_team_rounds_won INT,
     opponent_rounds_won INT,
     round_differential INT,
@@ -136,7 +136,7 @@ our_side_df = roster_matches_df.withColumn(
     F.col("priority_rank") == 1
 ).select(
     F.col("match_id"),
-    F.initcap(F.col("team")).alias("our_team_side")
+    F.initcap(F.col("team")).alias("our_team_color")
 )
 
 # 3. Pivot team scores (Red and Blue) from bronze_team
@@ -161,13 +161,13 @@ staged_dim_match_df = match_df.join(
     blue_team_df, on="match_id", how="left"
 ).withColumn(
     "our_team_rounds_won",
-    F.when(F.col("our_team_side") == "Red", F.col("red_rounds_won"))
-     .when(F.col("our_team_side") == "Blue", F.col("blue_rounds_won"))
+    F.when(F.col("our_team_color") == "Red", F.col("red_rounds_won"))
+     .when(F.col("our_team_color") == "Blue", F.col("blue_rounds_won"))
      .otherwise(None)
 ).withColumn(
     "opponent_rounds_won",
-    F.when(F.col("our_team_side") == "Red", F.col("blue_rounds_won"))
-     .when(F.col("our_team_side") == "Blue", F.col("red_rounds_won"))
+    F.when(F.col("our_team_color") == "Red", F.col("blue_rounds_won"))
+     .when(F.col("our_team_color") == "Blue", F.col("red_rounds_won"))
      .otherwise(None)
 ).withColumn(
     "round_differential",
@@ -192,7 +192,7 @@ staged_dim_match_df = match_df.join(
     "game_duration_minutes",
     "rounds_played",
     "is_overtime",
-    "our_team_side",
+    "our_team_color",
     "our_team_rounds_won",
     "opponent_rounds_won",
     "round_differential",
@@ -223,7 +223,7 @@ WHEN MATCHED THEN
     target.game_duration_minutes = source.game_duration_minutes,
     target.rounds_played = source.rounds_played,
     target.is_overtime = source.is_overtime,
-    target.our_team_side = source.our_team_side,
+    target.our_team_color = source.our_team_color,
     target.our_team_rounds_won = source.our_team_rounds_won,
     target.opponent_rounds_won = source.opponent_rounds_won,
     target.round_differential = source.round_differential,
@@ -242,7 +242,7 @@ WHEN NOT MATCHED THEN
     game_duration_minutes,
     rounds_played,
     is_overtime,
-    our_team_side,
+    our_team_color,
     our_team_rounds_won,
     opponent_rounds_won,
     round_differential,
@@ -261,7 +261,7 @@ WHEN NOT MATCHED THEN
     source.game_duration_minutes,
     source.rounds_played,
     source.is_overtime,
-    source.our_team_side,
+    source.our_team_color,
     source.our_team_rounds_won,
     source.opponent_rounds_won,
     source.round_differential,
@@ -294,7 +294,7 @@ display(spark.sql(f"""
         match_id, 
         match_date, 
         map_name, 
-        our_team_side,
+        our_team_color,
         CONCAT(our_team_rounds_won, ' - ', opponent_rounds_won) AS score, 
         match_outcome, 
         round_differential
