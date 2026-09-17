@@ -30,6 +30,15 @@ SOURCE_PLAYER = f"{CATALOG}.{BRONZE_SCHEMA}.bronze_player"
 SOURCE_ROSTER = f"{CATALOG}.{SILVER_SCHEMA}.dim_team_roster"
 TARGET_TABLE = f"{CATALOG}.{SILVER_SCHEMA}.dim_match"
 
+# Fallback Roster PUUIDs if dim_team_roster table is not yet populated
+DEFAULT_ROSTER_PUUIDS = [
+    "c38ffa2e-ce9d-5d95-9399-3a89c6af6b16",  # Agamemnon (Captain)
+    "59bae8f3-025c-5dcc-9a1c-c903279e4145",  # systemctl
+    "f91099e8-a14b-5913-b66b-13717562a6eb",  # NoSheat
+    "9ac37245-e47a-5977-9785-7c2590e2dcda",  # SC4R
+    "5775df6c-0f15-5e6c-8f00-3398dc77d351"   # Garamhe
+]
+
 print(f"Source Match:  {SOURCE_MATCH}")
 print(f"Source Team:   {SOURCE_TEAM}")
 print(f"Source Player: {SOURCE_PLAYER}")
@@ -72,16 +81,16 @@ COMMENT 'Canonical match dimension with match duration, score, and automated our
 # MAGIC %md
 # MAGIC ### Step 2: Extract Match Metadata and Resolve Team Perspective
 # MAGIC 
-# MAGIC 1. Match start epoch ms -> UTC timestamp and Date.
-# MAGIC 2. Cross-reference `bronze_player` with `dim_team_roster` to identify which team color (`Red` or `Blue`) our squad was on.
+# MAGIC 1. Match start epoch seconds -> UTC timestamp and calendar Date.
+# MAGIC 2. Cross-reference `bronze_player` with roster to identify which team color (`Red` or `Blue`) our squad was on.
 # MAGIC 3. Join with `bronze_team` to get rounds won/lost from our team's perspective.
 
 # COMMAND ----------
-# 1. Base Match Metadata
+# 1. Base Match Metadata (game_start is already in unix seconds)
 match_df = spark.table(SOURCE_MATCH).select(
     F.col("match_id"),
-    F.to_timestamp(F.from_unixtime(F.col("game_start") / 1000)).alias("match_start_timestamp"),
-    F.to_date(F.to_timestamp(F.from_unixtime(F.col("game_start") / 1000))).alias("match_date"),
+    F.to_timestamp(F.from_unixtime(F.col("game_start"))).alias("match_start_timestamp"),
+    F.to_date(F.to_timestamp(F.from_unixtime(F.col("game_start")))).alias("match_date"),
     F.col("map").alias("map_name"),
     F.col("game_length").alias("game_duration_seconds"),
     F.round(F.col("game_length") / 60.0, 1).alias("game_duration_minutes"),
@@ -93,11 +102,15 @@ match_df = spark.table(SOURCE_MATCH).select(
 
 # 2. Derive our_team_side from roster
 try:
-    roster_df = spark.table(SOURCE_ROSTER).filter(F.col("is_active_roster") == True)
-except Exception:
-    # Fallback to team captain PUUID if roster table not yet created
+    roster_df = spark.table(SOURCE_ROSTER).filter(F.col("is_active_roster") == True).select(
+        "player_puuid", "is_team_owner"
+    )
+    if roster_df.count() == 0:
+        raise ValueError("Roster table is empty")
+except Exception as e:
+    print(f"Using default roster fallback: {e}")
     roster_df = spark.createDataFrame(
-        [("c38ffa2e-ce9d-5d95-9399-3a89c6af6b16", True)],
+        [(p, p == "c38ffa2e-ce9d-5d95-9399-3a89c6af6b16") for p in DEFAULT_ROSTER_PUUIDS],
         ["player_puuid", "is_team_owner"]
     )
 
@@ -110,19 +123,19 @@ roster_matches_df = player_df.join(
     how="inner"
 )
 
-# Prefer team captain (is_team_owner = true), else most roster members on that side
-roster_team_window = Window.partitionBy("match_id").orderBy(
+# Window: Prefer captain (Agamemnon), else count of roster members on that side
+roster_side_window = Window.partitionBy("match_id").orderBy(
     F.col("is_team_owner").desc(),
     F.col("player_puuid")
 )
 
 our_side_df = roster_matches_df.withColumn(
-    "priority_rank", F.row_number().over(roster_team_window)
+    "priority_rank", F.row_number().over(roster_side_window)
 ).filter(
     F.col("priority_rank") == 1
 ).select(
     F.col("match_id"),
-    F.col("team").alias("our_team_side")
+    F.initcap(F.col("team")).alias("our_team_side")
 )
 
 # 3. Pivot team scores (Red and Blue) from bronze_team
@@ -147,13 +160,13 @@ staged_dim_match_df = match_df.join(
     blue_team_df, on="match_id", how="left"
 ).withColumn(
     "our_team_rounds_won",
-    F.when(F.lower(F.col("our_team_side")) == "red", F.col("red_rounds_won"))
-     .when(F.lower(F.col("our_team_side")) == "blue", F.col("blue_rounds_won"))
+    F.when(F.col("our_team_side") == "Red", F.col("red_rounds_won"))
+     .when(F.col("our_team_side") == "Blue", F.col("blue_rounds_won"))
      .otherwise(None)
 ).withColumn(
     "opponent_rounds_won",
-    F.when(F.lower(F.col("our_team_side")) == "red", F.col("blue_rounds_won"))
-     .when(F.lower(F.col("our_team_side")) == "blue", F.col("red_rounds_won"))
+    F.when(F.col("our_team_side") == "Red", F.col("blue_rounds_won"))
+     .when(F.col("our_team_side") == "Blue", F.col("red_rounds_won"))
      .otherwise(None)
 ).withColumn(
     "round_differential",

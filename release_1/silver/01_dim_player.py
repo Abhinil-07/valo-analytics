@@ -82,7 +82,7 @@ print(f"Active Core Roster PUUIDs loaded: {len(core_puuids)}")
 bronze_player_df = spark.table(SOURCE_PLAYER)
 bronze_match_df = spark.table(SOURCE_MATCH).select(
     "match_id",
-    F.to_timestamp(F.from_unixtime(F.col("game_start") / 1000)).alias("match_start_ts")
+    F.to_timestamp(F.from_unixtime(F.col("game_start"))).alias("match_start_ts")
 )
 
 player_matches_df = bronze_player_df.join(
