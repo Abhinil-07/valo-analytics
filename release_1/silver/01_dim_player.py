@@ -139,8 +139,14 @@ WHEN MATCHED AND (source.last_seen_timestamp >= target.last_seen_timestamp OR ta
     target.account_level = source.account_level,
     target.platform_type = source.platform_type,
     target.is_core_team = source.is_core_team,
-    target.first_seen_timestamp = LEAST(COALESCE(target.first_seen_timestamp, source.first_seen_timestamp), source.first_seen_timestamp),
-    target.last_seen_timestamp = GREATEST(COALESCE(target.last_seen_timestamp, source.last_seen_timestamp), source.last_seen_timestamp),
+    target.first_seen_timestamp = CASE 
+      WHEN target.first_seen_timestamp < '2020-01-01' THEN source.first_seen_timestamp
+      ELSE LEAST(COALESCE(target.first_seen_timestamp, source.first_seen_timestamp), source.first_seen_timestamp)
+    END,
+    target.last_seen_timestamp = CASE 
+      WHEN target.last_seen_timestamp < '2020-01-01' THEN source.last_seen_timestamp
+      ELSE GREATEST(COALESCE(target.last_seen_timestamp, source.last_seen_timestamp), source.last_seen_timestamp)
+    END,
     target.total_matches_recorded = source.total_matches_recorded,
     target.updated_at = source.updated_at
 WHEN NOT MATCHED THEN
