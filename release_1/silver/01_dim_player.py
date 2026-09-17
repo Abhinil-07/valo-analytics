@@ -131,7 +131,12 @@ merge_sql = f"""
 MERGE INTO {TARGET_TABLE} AS target
 USING staged_dim_player AS source
 ON target.player_puuid = source.player_puuid
-WHEN MATCHED AND (source.last_seen_timestamp >= target.last_seen_timestamp OR target.last_seen_timestamp IS NULL) THEN
+WHEN MATCHED AND (
+    source.last_seen_timestamp > target.last_seen_timestamp
+    OR target.is_core_team != source.is_core_team
+    OR target.last_seen_timestamp < '2020-01-01'
+    OR target.last_seen_timestamp IS NULL
+) THEN
   UPDATE SET
     target.current_display_name = source.current_display_name,
     target.player_name = source.player_name,
