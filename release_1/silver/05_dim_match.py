@@ -36,7 +36,8 @@ DEFAULT_ROSTER_PUUIDS = [
     "59bae8f3-025c-5dcc-9a1c-c903279e4145",  # systemctl
     "f91099e8-a14b-5913-b66b-13717562a6eb",  # NoSheat
     "9ac37245-e47a-5977-9785-7c2590e2dcda",  # SC4R
-    "5775df6c-0f15-5e6c-8f00-3398dc77d351"   # Garamhe
+    "5775df6c-0f15-5e6c-8f00-3398dc77d351",  # Garamhe
+    "663569fe-cd21-52b8-abc0-f9596fc7d1bf"   # Ned
 ]
 
 print(f"Source Match:  {SOURCE_MATCH}")

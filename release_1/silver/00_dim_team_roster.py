@@ -94,6 +94,14 @@ roster_data = [
         "Core",
         False,
         True
+    ),
+    (
+        "663569fe-cd21-52b8-abc0-f9596fc7d1bf",
+        "Ned",
+        "Ned#2933",
+        "Core",
+        False,
+        True
     )
 ]
 
