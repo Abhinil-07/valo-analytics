@@ -12,13 +12,6 @@
 # MAGIC   - `valorant.silver.fact_round_player` (Combat kills and deaths per side)
 # MAGIC - **Target:** `valorant.gold.gold_attack_defense_performance`
 # MAGIC - **Write Strategy:** Incremental Delta `MERGE` (Upsert on `map_name` + `tactical_side`)
-# MAGIC 
-# MAGIC ### Business Objectives & Power BI Pages Powered:
-# MAGIC - **Macro Tactical Bias:** Overall squad conversion on Attack vs Defense across all 211 matches.
-# MAGIC - **Starting Side Win Rates:** Hard win % comparison when starting on Attack vs starting on Defense.
-# MAGIC - **First Blood Conversion:** Win rate after opening kill (Attack FB vs Defense FB).
-# MAGIC - **Pistol & Anti-Eco Momentum:** Conversion rate in pistol rounds (R1/R13) and subsequent anti-ecos (R2/R14).
-# MAGIC - **Halftime Conversion:** Win rate when leading at halftime after starting Attack vs Defense.
 
 # COMMAND ----------
 import os
@@ -95,9 +88,9 @@ COMMENT 'Gold Attack vs Defense performance: macro conversion, starting side imp
 fact_round_df = spark.table(SOURCE_FACT_ROUND)
 dim_match_df  = spark.table(SOURCE_DIM_MATCH)
 
-# 1. Starting side per match (Round 1)
+# 1. Starting side per match (Round 1) - strictly filter for valid Attack/Defense sides
 match_starting_side_df = fact_round_df.filter(
-    F.col("round_number") == 1
+    (F.col("round_number") == 1) & F.col("our_team_side").isin("Attack", "Defense")
 ).select(
     F.col("match_id"),
     F.col("our_team_side").alias("starting_side")
@@ -116,7 +109,9 @@ first_half_match_df = fact_round_df.filter(
 )
 
 # 3. Match Context Table
-match_context_df = dim_match_df.select(
+match_context_df = dim_match_df.filter(
+    F.col("map_name").isNotNull()
+).select(
     F.col("match_id"),
     F.col("map_name"),
     F.col("is_our_team_win")
@@ -154,11 +149,15 @@ round_combat_df = spark.table(SOURCE_FACT_ROUND_PLAYER).filter(
     F.sum("deaths").alias("team_deaths")
 )
 
-# 3. Anti-Eco Detection: Subsequent round after winning Pistol (Round 2 following R1 win, Round 14 following R13 win)
+# 3. Filter rounds strictly for valid Attack/Defense sides and valid maps
 round_window = Window.partitionBy("match_id").orderBy("round_number")
 
-enriched_round_base_df = fact_round_df.join(
-    dim_match_df.select("match_id", "map_name"), on="match_id", how="inner"
+enriched_round_base_df = fact_round_df.filter(
+    F.col("our_team_side").isin("Attack", "Defense")
+).join(
+    dim_match_df.filter(F.col("map_name").isNotNull()).select("match_id", "map_name"),
+    on="match_id",
+    how="inner"
 ).join(
     opening_kills_df, on=["match_id", "round_number"], how="left"
 ).join(
@@ -181,7 +180,9 @@ enriched_round_base_df = fact_round_df.join(
 # COMMAND ----------
 def build_side_aggregation(df_rounds, df_matches, group_cols):
     # Match-level aggregates (Starting side & Halftime momentum)
-    match_agg = df_matches.groupBy(group_cols + ["starting_side"]).agg(
+    match_agg = df_matches.filter(
+        F.col("starting_side").isin("Attack", "Defense")
+    ).groupBy(group_cols + ["starting_side"]).agg(
         F.countDistinct("match_id").alias("matches_started_on_side"),
         F.count(F.when(F.col("is_our_team_win") == True, 1)).alias("match_wins_started_on_side"),
         F.round(F.avg("fh_rounds_won"), 1).alias("avg_first_half_rounds_won"),
@@ -190,7 +191,9 @@ def build_side_aggregation(df_rounds, df_matches, group_cols):
     ).withColumnRenamed("starting_side", "tactical_side")
 
     # Round-level aggregates
-    round_agg = df_rounds.groupBy(group_cols + ["our_team_side"]).agg(
+    round_agg = df_rounds.filter(
+        F.col("our_team_side").isin("Attack", "Defense")
+    ).groupBy(group_cols + ["our_team_side"]).agg(
         F.count("*").alias("rounds_played"),
         F.count(F.when(F.col("is_our_team_win") == True, 1)).alias("rounds_won"),
         F.count(F.when(F.col("is_our_team_win") == False, 1)).alias("rounds_lost"),
@@ -214,7 +217,7 @@ def build_side_aggregation(df_rounds, df_matches, group_cols):
         F.count(F.when(F.col("is_thrifty") == True, 1)).alias("thrifty_rounds_won")
     ).withColumnRenamed("our_team_side", "tactical_side")
 
-    return round_agg.join(match_agg, on=group_cols + ["tactical_side"], how="left")
+    return round_agg.join(match_agg, on=group_cols + ["tactical_side"], how="full_outer")
 
 # 1. Per-Map Side Breakdown
 map_side_df = build_side_aggregation(enriched_round_base_df, match_context_df, ["map_name"])
@@ -225,7 +228,9 @@ all_maps_matches_df = match_context_df.withColumn("map_name", F.lit("ALL_MAPS"))
 all_maps_side_df = build_side_aggregation(all_maps_rounds_df, all_maps_matches_df, ["map_name"])
 
 # Union Map Breakdown and Macro Rollup
-unified_side_df = map_side_df.unionByName(all_maps_side_df)
+unified_side_df = map_side_df.unionByName(all_maps_side_df).filter(
+    F.col("tactical_side").isin("Attack", "Defense") & F.col("map_name").isNotNull()
+)
 
 # COMMAND ----------
 # MAGIC %md
@@ -235,36 +240,38 @@ unified_side_df = map_side_df.unionByName(all_maps_side_df)
 final_gold_side_df = unified_side_df.select(
     F.col("map_name"),
     F.col("tactical_side"),
-    F.col("rounds_played"),
-    F.col("rounds_won"),
-    F.col("rounds_lost"),
-    F.round(F.col("rounds_won") * 100.0 / F.when(F.col("rounds_played") == 0, 1).otherwise(F.col("rounds_played")), 2).alias("side_win_pct"),
+    F.coalesce(F.col("rounds_played"), F.lit(0)).alias("rounds_played"),
+    F.coalesce(F.col("rounds_won"), F.lit(0)).alias("rounds_won"),
+    F.coalesce(F.col("rounds_lost"), F.lit(0)).alias("rounds_lost"),
+    F.round(F.coalesce(F.col("rounds_won"), F.lit(0)) * 100.0 / F.when(F.coalesce(F.col("rounds_played"), F.lit(0)) == 0, 1).otherwise(F.coalesce(F.col("rounds_played"), F.lit(0))), 2).alias("side_win_pct"),
     F.coalesce(F.col("matches_started_on_side"), F.lit(0)).alias("matches_started_on_side"),
     F.coalesce(F.col("match_wins_started_on_side"), F.lit(0)).alias("match_wins_started_on_side"),
-    F.round(F.coalesce(F.col("match_wins_started_on_side"), F.lit(0)) * 100.0 / F.when(F.coalesce(F.col("matches_started_on_side"), F.lit(0)) == 0, 1).otherwise(F.col("matches_started_on_side")), 2).alias("starting_side_match_win_pct"),
+    F.round(F.coalesce(F.col("match_wins_started_on_side"), F.lit(0)) * 100.0 / F.when(F.coalesce(F.col("matches_started_on_side"), F.lit(0)) == 0, 1).otherwise(F.coalesce(F.col("matches_started_on_side"), F.lit(0))), 2).alias("starting_side_match_win_pct"),
     F.coalesce(F.col("avg_first_half_rounds_won"), F.lit(0.0)).alias("avg_first_half_rounds_won"),
     F.coalesce(F.col("first_blood_rounds"), F.lit(0)).alias("first_blood_rounds"),
     F.coalesce(F.col("first_blood_wins"), F.lit(0)).alias("first_blood_wins"),
-    F.round(F.coalesce(F.col("first_blood_wins"), F.lit(0)) * 100.0 / F.when(F.coalesce(F.col("first_blood_rounds"), F.lit(0)) == 0, 1).otherwise(F.col("first_blood_rounds")), 2).alias("first_blood_conversion_pct"),
+    F.round(F.coalesce(F.col("first_blood_wins"), F.lit(0)) * 100.0 / F.when(F.coalesce(F.col("first_blood_rounds"), F.lit(0)) == 0, 1).otherwise(F.coalesce(F.col("first_blood_rounds"), F.lit(0))), 2).alias("first_blood_conversion_pct"),
     F.coalesce(F.col("first_death_rounds"), F.lit(0)).alias("first_death_rounds"),
     F.coalesce(F.col("first_death_losses"), F.lit(0)).alias("first_death_losses"),
-    F.round(F.coalesce(F.col("first_death_losses"), F.lit(0)) * 100.0 / F.when(F.coalesce(F.col("first_death_rounds"), F.lit(0)) == 0, 1).otherwise(F.col("first_death_rounds")), 2).alias("first_death_loss_pct"),
+    F.round(F.coalesce(F.col("first_death_losses"), F.lit(0)) * 100.0 / F.when(F.coalesce(F.col("first_death_rounds"), F.lit(0)) == 0, 1).otherwise(F.coalesce(F.col("first_death_rounds"), F.lit(0))), 2).alias("first_death_loss_pct"),
     F.coalesce(F.col("pistol_rounds_played"), F.lit(0)).alias("pistol_rounds_played"),
     F.coalesce(F.col("pistol_rounds_won"), F.lit(0)).alias("pistol_rounds_won"),
-    F.round(F.coalesce(F.col("pistol_rounds_won"), F.lit(0)) * 100.0 / F.when(F.coalesce(F.col("pistol_rounds_played"), F.lit(0)) == 0, 1).otherwise(F.col("pistol_rounds_played")), 2).alias("pistol_win_pct"),
+    F.round(F.coalesce(F.col("pistol_rounds_won"), F.lit(0)) * 100.0 / F.when(F.coalesce(F.col("pistol_rounds_played"), F.lit(0)) == 0, 1).otherwise(F.coalesce(F.col("pistol_rounds_played"), F.lit(0))), 2).alias("pistol_win_pct"),
     F.coalesce(F.col("anti_eco_rounds_played"), F.lit(0)).alias("anti_eco_rounds_played"),
     F.coalesce(F.col("anti_eco_rounds_won"), F.lit(0)).alias("anti_eco_rounds_won"),
-    F.round(F.coalesce(F.col("anti_eco_rounds_won"), F.lit(0)) * 100.0 / F.when(F.coalesce(F.col("anti_eco_rounds_played"), F.lit(0)) == 0, 1).otherwise(F.col("anti_eco_rounds_played")), 2).alias("anti_eco_conversion_pct"),
+    F.round(F.coalesce(F.col("anti_eco_rounds_won"), F.lit(0)) * 100.0 / F.when(F.coalesce(F.col("anti_eco_rounds_played"), F.lit(0)) == 0, 1).otherwise(F.coalesce(F.col("anti_eco_rounds_played"), F.lit(0))), 2).alias("anti_eco_conversion_pct"),
     F.coalesce(F.col("team_kills"), F.lit(0)).alias("team_kills"),
     F.coalesce(F.col("team_deaths"), F.lit(0)).alias("team_deaths"),
-    F.round(F.coalesce(F.col("team_kills"), F.lit(0)) / F.when(F.coalesce(F.col("team_deaths"), F.lit(0)) == 0, 1.0).otherwise(F.col("team_deaths")), 2).alias("team_kd_ratio"),
+    F.round(F.coalesce(F.col("team_kills"), F.lit(0)) / F.when(F.coalesce(F.col("team_deaths"), F.lit(0)) == 0, 1.0).otherwise(F.coalesce(F.col("team_deaths"), F.lit(0))), 2).alias("team_kd_ratio"),
     F.coalesce(F.col("spikes_planted"), F.lit(0)).alias("spikes_planted"),
     F.coalesce(F.col("spikes_defused"), F.lit(0)).alias("spikes_defused"),
     F.coalesce(F.col("thrifty_rounds_won"), F.lit(0)).alias("thrifty_rounds_won"),
     F.coalesce(F.col("leading_at_half_matches"), F.lit(0)).alias("leading_at_half_matches"),
     F.coalesce(F.col("leading_at_half_wins"), F.lit(0)).alias("leading_at_half_wins"),
-    F.round(F.coalesce(F.col("leading_at_half_wins"), F.lit(0)) * 100.0 / F.when(F.coalesce(F.col("leading_at_half_matches"), F.lit(0)) == 0, 1).otherwise(F.col("leading_at_half_matches")), 2).alias("halftime_lead_conversion_pct"),
+    F.round(F.coalesce(F.col("leading_at_half_wins"), F.lit(0)) * 100.0 / F.when(F.coalesce(F.col("leading_at_half_matches"), F.lit(0)) == 0, 1).otherwise(F.coalesce(F.col("leading_at_half_matches"), F.lit(0))), 2).alias("halftime_lead_conversion_pct"),
     F.current_timestamp().alias("updated_at")
+).filter(
+    F.col("tactical_side").isin("Attack", "Defense") & F.col("map_name").isNotNull()
 )
 
 # COMMAND ----------
