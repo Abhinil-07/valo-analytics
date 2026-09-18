@@ -1028,3 +1028,49 @@ ame#tag (e.g., 'Hiroshi#nohar') |
 | `updated_at` | `TIMESTAMP` | NO | Record ETL update timestamp |
 
 ---
+
+### 4.4 `valorant.gold.gold_team_performance`
+* **Purpose:** Multi-granularity executive team trajectory and recent form analysis (SRS Section 4, 18, 29). Provides toggleable time cohorts (`'WEEKLY'`, `'FORTNIGHTLY'`, `'MONTHLY'`) powering Power BI trendlines for match win rates, round differentials, Attack vs. Defense hold rates, combat K/D, longest win streaks, and 5-match form guides.
+* **Grain:** 1 row per `period_type` per `time_period`.
+* **Composite Primary Key:** `period_type` + `time_period`
+* **Source Tables:** `valorant.gold.gold_match_summary`
+* **Write Strategy:** Incremental Delta `MERGE` (Upsert on `period_type` + `time_period`)
+
+| Column Name | Data Type | Nullable | Description |
+| :--- | :--- | :--- | :--- |
+| `period_type` | `STRING` | NO | Cohort type: `'WEEKLY'`, `'FORTNIGHTLY'`, or `'MONTHLY'` (Composite PK) |
+| `time_period` | `STRING` | NO | Period identifier (e.g. `'2024-W20'`, `'2024-FN10'`, `'2024-05'`) (Composite PK) |
+| `period_start_date` | `DATE` | NO | First calendar day of the cohort |
+| `period_end_date` | `DATE` | NO | Final calendar day of the cohort |
+| `matches_played` | `INT` | NO | Total matches contested in this period |
+| `matches_won` | `INT` | NO | Total match victories |
+| `matches_lost` | `INT` | NO | Total match defeats |
+| `matches_drawn` | `INT` | NO | Total match draws (overtime ties) |
+| `team_win_pct` | `DOUBLE` | NO | Match win percentage (`matches_won / matches_played`) |
+| `rounds_played` | `INT` | NO | Total rounds contested across all matches |
+| `rounds_won` | `INT` | NO | Total rounds won by your squad |
+| `rounds_lost` | `INT` | NO | Total rounds won by opponents |
+| `round_win_pct` | `DOUBLE` | NO | Round win percentage (`rounds_won / rounds_played`) |
+| `round_differential` | `INT` | NO | Net round differential (+/-) |
+| `avg_round_differential` | `DOUBLE` | NO | Average round margin per match |
+| `attack_rounds_played` | `INT` | NO | Total rounds played on Attack |
+| `attack_rounds_won` | `INT` | NO | Total rounds won on Attack |
+| `attack_win_pct` | `DOUBLE` | NO | Attack conversion percentage |
+| `defense_rounds_played` | `INT` | NO | Total rounds played on Defense |
+| `defense_rounds_won` | `INT` | NO | Total rounds won on Defense |
+| `defense_win_pct` | `DOUBLE` | NO | Defense hold percentage |
+| `team_kills` | `INT` | NO | Total team eliminations |
+| `team_deaths` | `INT` | NO | Total team casualties |
+| `team_assists` | `INT` | NO | Total team assists |
+| `team_kd_ratio` | `DOUBLE` | NO | Team K/D ratio (`team_kills / team_deaths`) |
+| `team_damage_dealt` | `INT` | NO | Total damage dealt by squad |
+| `team_damage_received` | `INT` | NO | Total damage received by squad |
+| `team_damage_differential` | `INT` | NO | Net damage differential (+/-) |
+| `thrifty_rounds_won` | `INT` | NO | Total rounds won with significant credit deficit |
+| `longest_win_streak` | `INT` | NO | Longest consecutive match win streak in period |
+| `form_guide` | `STRING` | YES | Recent 5-match sequence (e.g. `'W-W-L-W-W'`) |
+| `most_played_map` | `STRING` | YES | Map played most frequently during this period |
+| `avg_match_duration_minutes` | `DOUBLE` | YES | Average match length in minutes |
+| `updated_at` | `TIMESTAMP` | NO | Record ETL update timestamp |
+
+---
