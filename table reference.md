@@ -1279,3 +1279,31 @@ ame#tag (e.g., 'Hiroshi#nohar') |
 | `updated_at` | `TIMESTAMP` | NO | Record ETL update timestamp |
 
 ---
+
+### 4.10 `valorant.gold.gold_spike_performance`
+* **Purpose:** Spike objective analytics, site execution preference, and post-plant vs. retake conversions (SRS Section 4, 18, 29). Tracks attack execution preference across bomb sites (`A`, `B`, `C`), post-plant win probability, average seconds elapsed to plant the spike, defense retake efficiency, and top objective specialists.
+* **Grain:** 1 row per `map_name` per bomb site (`site`: `'A'`, `'B'`, `'C'`).
+* **Composite Primary Key:** `map_name` + `site`
+* **Source Tables:** `valorant.silver.fact_spike_event`, `valorant.silver.dim_match`
+* **Write Strategy:** Incremental Delta `MERGE` (Upsert on `map_name` + `site`)
+
+| Column Name | Data Type | Nullable | Description |
+| :--- | :--- | :--- | :--- |
+| `map_name` | `STRING` | NO | Map name (Composite PK, e.g. `'Ascent'`, `'Haven'`) |
+| `site` | `STRING` | NO | Bomb site: `'A'`, `'B'`, or `'C'` (Composite PK) |
+| `our_plants_count` | `INT` | NO | Total times your squad planted on this site |
+| `our_post_plant_wins` | `INT` | NO | Rounds won after planting on this site |
+| `our_post_plant_win_pct` | `DOUBLE` | NO | Post-plant win percentage (`post_plant_wins / plants`) |
+| `our_spike_detonations` | `INT` | NO | Rounds where spike successfully detonated |
+| `enemy_defuses_allowed` | `INT` | NO | Rounds where opponents successfully defused our spike |
+| `site_plant_preference_pct` | `DOUBLE` | NO | % of squad's plants on this map targeted at this site |
+| `avg_plant_time_seconds` | `DOUBLE` | NO | Average seconds elapsed into the round when planting |
+| `opponent_plants_count` | `INT` | NO | Times opponents planted on this site |
+| `our_retake_defuses` | `INT` | NO | Successful retakes defusing opponent spike |
+| `our_retake_win_pct` | `DOUBLE` | NO | Retake defusal success rate (`retakes / enemy_plants`) |
+| `opponent_detonations` | `INT` | NO | Times enemy spike detonated on this site |
+| `top_planter_display_name` | `STRING` | YES | Squad member who planted most on this site |
+| `top_defuser_display_name` | `STRING` | YES | Squad member who defused most on this site |
+| `updated_at` | `TIMESTAMP` | NO | Record ETL update timestamp |
+
+---
