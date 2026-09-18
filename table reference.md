@@ -1074,3 +1074,51 @@ ame#tag (e.g., 'Hiroshi#nohar') |
 | `updated_at` | `TIMESTAMP` | NO | Record ETL update timestamp |
 
 ---
+
+### 4.5 `valorant.gold.gold_map_performance`
+* **Purpose:** Map mastery, pick frequency, side bias diagnostics, and starting side win rates (SRS Section 4, 18, 29). Classifies maps into tiers (`'S-Tier'`, `'A-Tier'`, `'B-Tier'`, `'Perma-Ban'`), identifies tactical side bias (`'Attack-Biased'` vs `'Defense-Biased'`), and tracks whether starting on Attack or Defense affects match outcomes and first-half round momentum.
+* **Grain:** 1 row per map.
+* **Primary Key:** `map_name`
+* **Source Tables:** `valorant.silver.dim_map`, `valorant.gold.gold_match_summary`, `valorant.silver.fact_round`
+* **Write Strategy:** Incremental Delta `MERGE` (Upsert on `map_name`)
+
+| Column Name | Data Type | Nullable | Description |
+| :--- | :--- | :--- | :--- |
+| `map_name` | `STRING` | NO | Map name (Primary Key, e.g. `'Ascent'`, `'Haven'`) |
+| `map_splash_url` | `STRING` | YES | High-res Riot CDN splash artwork URL |
+| `bomb_site_count` | `INT` | YES | Number of bomb sites (2 or 3) |
+| `is_active_pool` | `BOOLEAN` | YES | True if currently in active competitive rotation |
+| `matches_played` | `INT` | NO | Total matches contested on this map |
+| `matches_won` | `INT` | NO | Total match victories on this map |
+| `matches_lost` | `INT` | NO | Total match defeats on this map |
+| `matches_drawn` | `INT` | NO | Total match draws on this map |
+| `map_win_pct` | `DOUBLE` | NO | Map win percentage (`matches_won / matches_played`) |
+| `play_frequency_pct` | `DOUBLE` | NO | Percentage of all squad matches played on this map |
+| `rounds_played` | `INT` | NO | Total rounds contested on this map |
+| `rounds_won` | `INT` | NO | Total rounds won on this map |
+| `rounds_lost` | `INT` | NO | Total rounds lost on this map |
+| `round_win_pct` | `DOUBLE` | NO | Round win percentage (`rounds_won / rounds_played`) |
+| `round_differential` | `INT` | NO | Net round differential on this map (+/-) |
+| `avg_round_differential` | `DOUBLE` | NO | Average round margin per match |
+| `attack_rounds_played` | `INT` | NO | Total Attack rounds contested |
+| `attack_rounds_won` | `INT` | NO | Total Attack rounds won |
+| `attack_win_pct` | `DOUBLE` | NO | Attack conversion percentage |
+| `defense_rounds_played` | `INT` | NO | Total Defense rounds contested |
+| `defense_rounds_won` | `INT` | NO | Total Defense rounds won |
+| `defense_win_pct` | `DOUBLE` | NO | Defense hold percentage |
+| `attack_start_matches` | `INT` | NO | Matches where your squad started on Attack (Rounds 1–12) |
+| `attack_start_wins` | `INT` | NO | Match wins when starting on Attack |
+| `attack_start_win_pct` | `DOUBLE` | NO | Match win rate when starting on Attack |
+| `attack_start_first_half_round_win_pct` | `DOUBLE` | NO | 1st half round win rate when starting on Attack |
+| `defense_start_matches` | `INT` | NO | Matches where your squad started on Defense (Rounds 1–12) |
+| `defense_start_wins` | `INT` | NO | Match wins when starting on Defense |
+| `defense_start_win_pct` | `DOUBLE` | NO | Match win rate when starting on Defense |
+| `defense_start_first_half_round_win_pct` | `DOUBLE` | NO | 1st half round win rate when starting on Defense |
+| `side_bias` | `STRING` | NO | Tactical bias: `'Attack-Biased'`, `'Defense-Biased'`, or `'Balanced'` |
+| `team_kd_ratio` | `DOUBLE` | NO | Team K/D ratio on this map |
+| `thrifty_rounds_won` | `INT` | NO | Thrifty rounds won on this map |
+| `avg_match_duration_minutes` | `DOUBLE` | YES | Average match length in minutes |
+| `map_tier` | `STRING` | NO | Squad tier: `'S-Tier'`, `'A-Tier'`, `'B-Tier'`, or `'Perma-Ban'` |
+| `updated_at` | `TIMESTAMP` | NO | Record ETL update timestamp |
+
+---
