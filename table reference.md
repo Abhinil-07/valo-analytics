@@ -1122,3 +1122,48 @@ ame#tag (e.g., 'Hiroshi#nohar') |
 | `updated_at` | `TIMESTAMP` | NO | Record ETL update timestamp |
 
 ---
+
+### 4.6 `valorant.gold.gold_agent_performance`
+* **Purpose:** Hero pool mastery, comfort picks vs. pocket picks, and utility efficiency per player (SRS Section 4, 18, 29). Powers the Pick Rate vs. Win Rate quadrant scatter plot, role proficiencies, agent heatmaps, and tactical utility cast rates.
+* **Grain:** 1 row per squad member per agent.
+* **Composite Primary Key:** `player_puuid` + `agent_name`
+* **Source Tables:** `valorant.gold.gold_player_match_performance`, `valorant.silver.fact_round_player`, `valorant.silver.dim_agent`
+* **Write Strategy:** Incremental Delta `MERGE` (Upsert on `player_puuid` + `agent_name`)
+
+| Column Name | Data Type | Nullable | Description |
+| :--- | :--- | :--- | :--- |
+| `player_puuid` | `STRING` | NO | Unique Riot player PUUID (Composite PK) |
+| `player_name` | `STRING` | YES | Player Riot name (e.g. `'Agamemnon'`) |
+| `current_display_name` | `STRING` | YES | Most recent display name (`'Agamemnon#0707'`) |
+| `roster_role` | `STRING` | YES | Official squad title (e.g. `'Captain / Duelist'`) |
+| `is_core_team` | `BOOLEAN` | NO | `true` for 6-man roster, `false` for guest substitutes |
+| `agent_name` | `STRING` | NO | Agent name (Composite PK, e.g. `'Jett'`, `'Sova'`) |
+| `agent_role` | `STRING` | YES | Tactical role (`'Duelist'`, `'Initiator'`, `'Controller'`, `'Sentinel'`) |
+| `agent_icon_url` | `STRING` | YES | High-res Riot CDN agent icon URL |
+| `matches_played` | `INT` | NO | Total matches played on this agent |
+| `matches_won` | `INT` | NO | Total match victories on this agent |
+| `matches_lost` | `INT` | NO | Total match defeats on this agent |
+| `agent_win_pct` | `DOUBLE` | NO | Win rate on this agent (`matches_won / matches_played`) |
+| `agent_pick_pct` | `DOUBLE` | NO | Percentage of player's total matches played on this agent |
+| `rounds_played` | `INT` | NO | Total rounds played on this agent |
+| `rounds_won` | `INT` | NO | Total rounds won on this agent |
+| `round_win_pct` | `DOUBLE` | NO | Round win percentage on this agent |
+| `total_kills` | `INT` | NO | Total kills with this agent |
+| `total_deaths` | `INT` | NO | Total deaths with this agent |
+| `total_assists` | `INT` | NO | Total assists with this agent |
+| `kd_ratio` | `DOUBLE` | NO | Kill/death ratio on this agent |
+| `kill_differential` | `INT` | NO | Net kills minus deaths (+/-) |
+| `avg_acs` | `DOUBLE` | NO | Average Combat Score on this agent |
+| `avg_adr` | `DOUBLE` | NO | Average Damage per Round on this agent |
+| `headshot_pct` | `DOUBLE` | NO | Headshot percentage landed on this agent |
+| `total_ultimate_casts` | `INT` | NO | Total ultimate activations on this agent |
+| `avg_ultimates_per_match` | `DOUBLE` | NO | Average ultimates cast per match |
+| `total_ability_casts` | `INT` | NO | Total tactical abilities used on this agent |
+| `avg_abilities_per_round` | `DOUBLE` | NO | Tactical utility cast rate per round |
+| `avg_spent_credits` | `DOUBLE` | NO | Average credits spent per round on this agent |
+| `match_mvp_count` | `INT` | NO | Match MVP badges earned while on this agent |
+| `team_top_fragger_count` | `INT` | NO | Times led squad in kills on this agent |
+| `mastery_tier` | `STRING` | NO | Tier: `'Signature'`, `'Comfort Pick'`, `'Pocket Pick'`, `'Experimental'` |
+| `updated_at` | `TIMESTAMP` | NO | Record ETL update timestamp |
+
+---
