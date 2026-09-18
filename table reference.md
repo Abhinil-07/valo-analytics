@@ -1211,3 +1211,34 @@ ame#tag (e.g., 'Hiroshi#nohar') |
 | `updated_at` | `TIMESTAMP` | NO | Record ETL update timestamp |
 
 ---
+
+### 4.8 `valorant.gold.gold_economy_performance`
+* **Purpose:** Economy analytics, buy tier matchup matrices, and thrifty ROI (SRS Section 4, 18, 29). Compares round win rates when facing specific economic situations (e.g. `Full Buy vs Full Buy` gun rounds, `Full Buy vs Eco` anti-eco situations, and `Eco vs Full Buy` underdog rounds). Tracks loadout value expenditure, net credit advantage, and anti-eco throw rates.
+* **Grain:** 1 row per economic buy tier matchup (`our_buy_tier` vs `opponent_buy_tier`).
+* **Composite Primary Key:** `our_buy_tier` + `opponent_buy_tier`
+* **Source Tables:** `valorant.silver.fact_round`, `valorant.silver.fact_round_player`
+* **Write Strategy:** Incremental Delta `MERGE` (Upsert on `our_buy_tier` + `opponent_buy_tier`)
+
+| Column Name | Data Type | Nullable | Description |
+| :--- | :--- | :--- | :--- |
+| `buy_matchup` | `STRING` | NO | Clean display label (e.g. `'Full Buy vs Full Buy'`, `'Eco vs Full Buy'`) |
+| `our_buy_tier` | `STRING` | NO | Squad buy tier (`'Full Buy'`, `'Semi-Buy'`, `'Eco'`, `'Pistol Round'`) (Composite PK) |
+| `opponent_buy_tier` | `STRING` | NO | Enemy buy tier (`'Full Buy'`, `'Semi-Buy'`, `'Eco'`, `'Pistol Round'`) (Composite PK) |
+| `rounds_played` | `INT` | NO | Total rounds contested in this economic matchup |
+| `rounds_won` | `INT` | NO | Rounds won in this economic matchup |
+| `rounds_lost` | `INT` | NO | Rounds lost in this economic matchup |
+| `matchup_win_pct` | `DOUBLE` | NO | Win percentage in this matchup (`rounds_won / rounds_played`) |
+| `avg_our_loadout_value` | `INT` | NO | Average equipment investment of your squad in credits |
+| `avg_opponent_loadout_value` | `INT` | NO | Average equipment investment of enemy squad in credits |
+| `avg_loadout_advantage` | `INT` | NO | Net credit advantage/deficit (`our_loadout - opponent_loadout`) |
+| `thrifty_rounds_won` | `INT` | NO | Underdog rounds won with $\ge 5,000$ credit deficit |
+| `thrifty_conversion_pct` | `DOUBLE` | NO | Win rate when operating at a significant economic deficit |
+| `anti_eco_throw_count` | `INT` | NO | Rounds lost while on `Full Buy` against enemy `Eco` |
+| `team_kills` | `INT` | NO | Total eliminations secured in this economic state |
+| `team_deaths` | `INT` | NO | Total casualties suffered in this economic state |
+| `team_kd_ratio` | `DOUBLE` | NO | Team K/D ratio in this economic state |
+| `spikes_planted` | `INT` | NO | Spikes planted in this economic matchup |
+| `spikes_defused` | `INT` | NO | Spikes defused in this economic matchup |
+| `updated_at` | `TIMESTAMP` | NO | Record ETL update timestamp |
+
+---
