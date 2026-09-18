@@ -976,3 +976,55 @@ ame#tag (e.g., 'Hiroshi#nohar') |
 | `updated_at` | `TIMESTAMP` | NO | Record ETL update timestamp |
 
 ---
+
+### 4.3 `valorant.gold.gold_player_overall_summary`
+* **Purpose:** Squad lifetime career leaderboards and player profile KPI cards (SRS Section 4, 18, 29). Computes all-time career win percentages, K/D ratios, ACS, exact shot distribution accuracy, opening duel differentials (First Bloods vs First Deaths), revenge trade kills, signature agents, and overall performance tiers.
+* **Grain:** 1 row per squad member (lifetime career aggregate).
+* **Primary Key:** `player_puuid`
+* **Source Tables:** `valorant.gold.gold_player_match_performance`, `valorant.silver.fact_match_player`, `valorant.silver.fact_round_player`, `valorant.silver.fact_kill_event`, `valorant.silver.dim_agent`
+* **Write Strategy:** Incremental Delta `MERGE` (Upsert on `player_puuid`)
+
+| Column Name | Data Type | Nullable | Description |
+| :--- | :--- | :--- | :--- |
+| `player_puuid` | `STRING` | NO | Unique Riot player PUUID (Primary Key) |
+| `player_name` | `STRING` | YES | Player Riot name (e.g. `'Agamemnon'`) |
+| `player_tag` | `STRING` | YES | Player Riot tagline (e.g. `'0707'`) |
+| `current_display_name` | `STRING` | YES | Most recent display name (`'Agamemnon#0707'`) |
+| `roster_role` | `STRING` | YES | Official squad title (e.g. `'Captain / Duelist'`) |
+| `is_core_team` | `BOOLEAN` | NO | `true` for 6-man roster, `false` for guest substitutes |
+| `total_matches_played` | `INT` | NO | Total matches played |
+| `matches_won` | `INT` | NO | Total match victories |
+| `match_win_pct` | `DOUBLE` | NO | Career match win rate (`matches_won / total_matches`) |
+| `total_rounds_played` | `INT` | NO | Total individual rounds played |
+| `rounds_won` | `INT` | NO | Total individual rounds won |
+| `round_win_pct` | `DOUBLE` | NO | Career round win rate (`rounds_won / total_rounds`) |
+| `total_kills` | `INT` | NO | Total career kills |
+| `total_deaths` | `INT` | NO | Total career deaths |
+| `total_assists` | `INT` | NO | Total career assists |
+| `career_kd_ratio` | `DOUBLE` | NO | Lifetime K/D (`total_kills / max(total_deaths, 1)`) |
+| `career_kill_differential` | `INT` | NO | Net kill differential (`total_kills - total_deaths`) |
+| `first_blood_count` | `INT` | NO | Total opening kills secured |
+| `first_death_count` | `INT` | NO | Total opening deaths suffered |
+| `first_blood_differential` | `INT` | NO | Net opening duel differential (`FB - FD`) |
+| `trade_kill_count` | `INT` | NO | Teammate revenge kills completed ($\le 4\text{s}$) |
+| `career_avg_acs` | `DOUBLE` | NO | Lifetime Average Combat Score |
+| `career_avg_adr` | `DOUBLE` | NO | Lifetime Average Damage per Round |
+| `career_headshot_pct` | `DOUBLE` | NO | Lifetime Headshot percentage |
+| `career_bodyshot_pct` | `DOUBLE` | NO | Lifetime Bodyshot percentage |
+| `career_legshot_pct` | `DOUBLE` | NO | Lifetime Legshot percentage |
+| `most_played_agent` | `STRING` | YES | Signature agent with highest match count |
+| `most_played_agent_role` | `STRING` | YES | Tactical role of signature agent |
+| `most_played_agent_icon_url` | `STRING` | YES | Riot CDN icon for signature agent |
+| `most_played_agent_matches` | `INT` | YES | Matches played on signature agent |
+| `most_played_agent_win_pct` | `DOUBLE` | YES | Win percentage on signature agent |
+| `highest_winrate_agent` | `STRING` | YES | Agent with highest win % ($\ge 3$ matches) |
+| `total_ultimate_casts` | `INT` | NO | Lifetime ultimate activations |
+| `total_ability_casts` | `INT` | NO | Lifetime ability casts |
+| `avg_abilities_per_round` | `DOUBLE` | NO | Tactical utility usage rate per round |
+| `career_avg_spent` | `DOUBLE` | NO | Average credits spent per round |
+| `match_mvp_count` | `INT` | NO | Total times earned Match MVP badge |
+| `team_top_fragger_count` | `INT` | NO | Total times led squad in kills |
+| `overall_rating` | `STRING` | NO | Squad tier rating: `'Elite'`, `'Solid'`, `'Developing'` |
+| `updated_at` | `TIMESTAMP` | NO | Record ETL update timestamp |
+
+---
