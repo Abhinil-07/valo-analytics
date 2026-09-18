@@ -78,6 +78,16 @@ USING DELTA
 COMMENT 'Canonical match dimension with match duration, score, and automated our-team outcome'
 """)
 
+# Schema migration: Ensure our_team_color exists if table was previously created with our_team_side
+try:
+    existing_cols = spark.table(TARGET_TABLE).columns
+    if "our_team_color" not in existing_cols:
+        spark.sql(f"ALTER TABLE {TARGET_TABLE} ADD COLUMNS (our_team_color STRING)")
+        if "our_team_side" in existing_cols:
+            spark.sql(f"UPDATE {TARGET_TABLE} SET our_team_color = our_team_side WHERE our_team_color IS NULL")
+except Exception as e:
+    print(f"Schema check notice: {e}")
+
 # COMMAND ----------
 # MAGIC %md
 # MAGIC ### Step 2: Extract Match Metadata and Resolve Team Perspective

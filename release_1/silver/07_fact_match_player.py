@@ -115,11 +115,14 @@ except Exception as e:
     print(f"Warning: Could not read {SOURCE_DIM_ROSTER} ({e}). Fallback to empty core squad.")
     core_puuids = []
 
-# 2. Read Match Context from dim_match
-match_df = spark.table(SOURCE_DIM_MATCH).select(
+# 2. Read Match Context from dim_match (supports our_team_color or our_team_side)
+raw_dim_match = spark.table(SOURCE_DIM_MATCH)
+color_col = "our_team_color" if "our_team_color" in raw_dim_match.columns else "our_team_side"
+
+match_df = raw_dim_match.select(
     F.col("match_id"),
     F.col("rounds_played"),
-    F.col("our_team_color"),
+    F.initcap(F.col(color_col)).alias("our_team_color"),
     F.col("is_our_team_win")
 )
 

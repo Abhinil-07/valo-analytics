@@ -156,10 +156,13 @@ blue_loadout_df = team_loadout_df.filter(F.col("team") == "Blue").select(
     F.col("avg_loadout").alias("blue_avg_loadout")
 )
 
-# 5. Get our_team_side for the match from dim_match
-match_side_df = spark.table(SOURCE_DIM_MATCH).select(
+# 5. Get our_team_side for the match from dim_match (supports our_team_color or our_team_side)
+raw_dim_match = spark.table(SOURCE_DIM_MATCH)
+color_col = "our_team_color" if "our_team_color" in raw_dim_match.columns else "our_team_side"
+
+match_side_df = raw_dim_match.select(
     F.col("match_id"),
-    F.initcap(F.col("our_team_color")).alias("our_team_color")  # 'Red' or 'Blue'
+    F.initcap(F.col(color_col)).alias("our_team_color")  # 'Red' or 'Blue'
 )
 
 # 6. Join All Pieces and Compute Derived Fields
