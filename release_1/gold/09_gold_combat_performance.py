@@ -13,11 +13,11 @@
 # MAGIC - **Target:** `valorant.gold.gold_combat_performance`
 # MAGIC - **Write Strategy:** Incremental Delta `MERGE` (Upsert on `player_puuid` + `weapon_name`)
 # MAGIC 
-# MAGIC ### Business Objectives & Power BI Pages Powered:
+# MAGIC ### Business Objectives & Databricks Dashboard Widgets:
 # MAGIC - **Weapon Arsenal & Tier List:** Vandal vs. Phantom efficiency and overall gun rankings.
-# MAGIC - **Deadliest Specialists:** Identifying top Operator, Sheriff, and Rifle specialists across the squad.
+# MAGIC - **Gun Mastery & Trophy Badges (🏆):** Tags the #1 player on each gun (e.g. `🏆 Odin Specialist`, `🏆 Operator Specialist`).
+# MAGIC - **Databricks Dashboard Ready:** Formatted badge strings (`specialist_badge`, `top_specialist_name`) display natively on Databricks AI/BI table & counter cards.
 # MAGIC - **Gunfight Precision:** Exact Headshot % landed per weapon per player.
-# MAGIC - **Opening Duel Impact:** Which weapons generate the highest volume of First Bloods.
 
 # COMMAND ----------
 import os
@@ -70,10 +70,13 @@ CREATE TABLE IF NOT EXISTS {TARGET_TABLE} (
     weapon_headshot_pct DOUBLE NOT NULL,
     credits_per_kill INT NOT NULL,
     is_primary_weapon BOOLEAN NOT NULL,
+    is_squad_weapon_specialist BOOLEAN NOT NULL,
+    top_specialist_name STRING,
+    specialist_badge STRING,
     updated_at TIMESTAMP NOT NULL
 )
 USING DELTA
-COMMENT 'Gold combat performance: weapon arsenal, lethal efficiency, headshot accuracy, and duel conversion'
+COMMENT 'Gold combat performance: weapon arsenal, lethal efficiency, headshot accuracy, and squad specialist trophy badges'
 """)
 
 # COMMAND ----------
@@ -103,11 +106,10 @@ player_names_df = spark.table(SOURCE_GOLD_PLAYER).select(
 
 # COMMAND ----------
 # MAGIC %md
-# MAGIC ### Step 3: Helper Function to Aggregate Combat by Player and Weapon
+# MAGIC ### Step 3: Aggregate Combat by Player & Identify Weapon Specialists (🏆)
 
 # COMMAND ----------
 def aggregate_combat(df_rounds, df_kills, player_id_col):
-    # Round-level aggregates
     rounds_agg = df_rounds.groupBy(player_id_col, "weapon_name").agg(
         F.count("*").alias("rounds_equipped"),
         F.count(F.when(F.col("is_round_win") == True, 1)).alias("rounds_won_with_weapon"),
@@ -117,14 +119,12 @@ def aggregate_combat(df_rounds, df_kills, player_id_col):
         F.sum("legshots").alias("legshots")
     )
 
-    # Kill-level aggregates
     kills_agg = df_kills.groupBy(player_id_col, F.col("damage_weapon_name").alias("weapon_name")).agg(
         F.count("*").alias("total_kills"),
         F.count(F.when(F.col("is_opening_kill") == True, 1)).alias("first_bloods_secured"),
         F.count(F.when(F.col("is_trade_kill") == True, 1)).alias("trade_kills_secured")
     )
 
-    # Full outer join on weapon
     return rounds_agg.join(kills_agg, on=[player_id_col, "weapon_name"], how="full_outer")
 
 # 1. Per-Player Combat Records
@@ -134,7 +134,28 @@ player_combat_raw = aggregate_combat(
     "player_puuid"
 )
 
-# 2. Squad-Wide Macro Rollup ('ALL_SQUAD')
+# 2. Derive Top Specialist for Each Weapon across Squad Members
+specialist_rank_window = Window.partitionBy("weapon_name").orderBy(
+    F.coalesce(F.col("total_kills"), F.lit(0)).desc(),
+    F.coalesce(F.col("rounds_won_with_weapon"), F.lit(0)).desc()
+)
+
+top_specialists_df = player_combat_raw.join(
+    player_names_df, on="player_puuid", how="inner"
+).filter(
+    F.coalesce(F.col("total_kills"), F.lit(0)) > 0
+).withColumn(
+    "rn", F.row_number().over(specialist_rank_window)
+).filter(
+    F.col("rn") == 1
+).select(
+    F.col("weapon_name"),
+    F.col("player_puuid").alias("specialist_puuid"),
+    F.col("current_display_name").alias("top_specialist_name"),
+    F.col("total_kills").alias("specialist_kills")
+)
+
+# 3. Squad-Wide Macro Rollup ('ALL_SQUAD')
 all_squad_rounds = round_player_df.withColumn("player_puuid", F.lit("ALL_SQUAD"))
 all_squad_kills  = kill_event_df.withColumn("killer_puuid", F.lit("ALL_SQUAD"))
 all_squad_combat_raw = aggregate_combat(
@@ -148,12 +169,13 @@ unified_combat_raw = player_combat_raw.unionByName(all_squad_combat_raw)
 
 # COMMAND ----------
 # MAGIC %md
-# MAGIC ### Step 4: Enrich with Dimension Metadata, Accuracy %, and Primary Flags
+# MAGIC ### Step 4: Enrich with Dimension Metadata, Accuracy %, and Trophy Badges
 
 # COMMAND ----------
 enriched_combat_df = unified_combat_raw \
     .join(dim_weapon_df, on="weapon_name", how="left") \
     .join(player_names_df, on="player_puuid", how="left") \
+    .join(top_specialists_df, on="weapon_name", how="left") \
     .withColumn(
         "current_display_name",
         F.when(F.col("player_puuid") == "ALL_SQUAD", F.lit("Team Total")).otherwise(F.coalesce(F.col("current_display_name"), F.col("player_puuid")))
@@ -187,6 +209,18 @@ final_gold_combat_df = enriched_combat_df.withColumn(
     "player_total_kills", F.sum("total_kills").over(w_player)
 ).withColumn(
     "weapon_rank", F.row_number().over(w_rank)
+).withColumn(
+    "is_squad_weapon_specialist",
+    F.when((F.col("player_puuid") != "ALL_SQUAD") & (F.col("player_puuid") == F.col("specialist_puuid")), True).otherwise(False)
+).withColumn(
+    "specialist_badge",
+    F.when(
+        F.col("player_puuid") == "ALL_SQUAD",
+        F.when(F.col("top_specialist_name").isNotNull(), F.concat(F.lit("🏆 Top Specialist: "), F.col("top_specialist_name"), F.lit(" ("), F.col("specialist_kills"), F.lit(" kills)"))).otherwise(F.lit("No Kills"))
+    ).when(
+        F.col("is_squad_weapon_specialist") == True,
+        F.concat(F.lit("🏆 Squad "), F.col("weapon_name"), F.lit(" Specialist"))
+    ).otherwise(None)
 ).select(
     F.col("player_puuid"),
     F.col("current_display_name"),
@@ -209,6 +243,9 @@ final_gold_combat_df = enriched_combat_df.withColumn(
     F.round(F.col("headshots") * 100.0 / F.when((F.col("headshots") + F.col("bodyshots") + F.col("legshots")) == 0, 1).otherwise(F.col("headshots") + F.col("bodyshots") + F.col("legshots")), 2).alias("weapon_headshot_pct"),
     F.round((F.col("rounds_equipped") * F.col("weapon_cost")) / F.when(F.col("total_kills") == 0, 1.0).otherwise(F.col("total_kills"))).cast("int").alias("credits_per_kill"),
     F.when(F.col("weapon_rank") == 1, True).otherwise(False).alias("is_primary_weapon"),
+    F.col("is_squad_weapon_specialist"),
+    F.col("top_specialist_name"),
+    F.col("specialist_badge"),
     F.current_timestamp().alias("updated_at")
 )
 
@@ -244,6 +281,9 @@ WHEN MATCHED THEN
     target.weapon_headshot_pct = source.weapon_headshot_pct,
     target.credits_per_kill = source.credits_per_kill,
     target.is_primary_weapon = source.is_primary_weapon,
+    target.is_squad_weapon_specialist = source.is_squad_weapon_specialist,
+    target.top_specialist_name = source.top_specialist_name,
+    target.specialist_badge = source.specialist_badge,
     target.updated_at = source.updated_at
 WHEN NOT MATCHED THEN
   INSERT (
@@ -251,14 +291,16 @@ WHEN NOT MATCHED THEN
     rounds_equipped, rounds_won_with_weapon, weapon_round_win_pct,
     total_kills, kill_share_pct, first_bloods_secured, trade_kills_secured,
     total_damage_dealt, avg_damage_per_round, headshots, bodyshots, legshots,
-    weapon_headshot_pct, credits_per_kill, is_primary_weapon, updated_at
+    weapon_headshot_pct, credits_per_kill, is_primary_weapon,
+    is_squad_weapon_specialist, top_specialist_name, specialist_badge, updated_at
   )
   VALUES (
     source.player_puuid, source.current_display_name, source.weapon_name, source.weapon_category, source.weapon_cost, source.weapon_icon_url,
     source.rounds_equipped, source.rounds_won_with_weapon, source.weapon_round_win_pct,
     source.total_kills, source.kill_share_pct, source.first_bloods_secured, source.trade_kills_secured,
     source.total_damage_dealt, source.avg_damage_per_round, source.headshots, source.bodyshots, source.legshots,
-    source.weapon_headshot_pct, source.credits_per_kill, source.is_primary_weapon, source.updated_at
+    source.weapon_headshot_pct, source.credits_per_kill, source.is_primary_weapon,
+    source.is_squad_weapon_specialist, source.top_specialist_name, source.specialist_badge, source.updated_at
   )
 """
 
@@ -268,17 +310,16 @@ merge_result.show()
 
 # COMMAND ----------
 # MAGIC %md
-# MAGIC ### Step 6: Verification & Arsenal Leaderboard Display
+# MAGIC ### Step 6: Verification & Arsenal Specialist Trophy Display
 
 # COMMAND ----------
 total_combat_rows = spark.table(TARGET_TABLE).count()
 print(f"Total Combat Arsenal Records: {total_combat_rows}")
 
-# Display Squad Weapon Tier List
-print("Overall Squad Weapon Tier List ('Team Total'):")
+# Display Weapon Specialists on Databricks
+print("Squad Weapon Specialists & Badges ('Team Total' view):")
 spark.table(TARGET_TABLE).filter(
     F.col("player_puuid") == "ALL_SQUAD"
 ).select(
-    "weapon_name", "weapon_category", "total_kills", "kill_share_pct",
-    "weapon_headshot_pct", "first_bloods_secured", "weapon_round_win_pct", "is_primary_weapon"
-).orderBy(F.col("total_kills").desc()).show(15, truncate=False)
+    "weapon_name", "weapon_category", "total_kills", "specialist_badge"
+).orderBy(F.col("total_kills").desc()).show(20, truncate=False)

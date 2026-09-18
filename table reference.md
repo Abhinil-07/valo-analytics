@@ -1273,6 +1273,9 @@ ame#tag (e.g., 'Hiroshi#nohar') |
 | `weapon_headshot_pct` | `DOUBLE` | NO | Headshot accuracy % with this weapon |
 | `credits_per_kill` | `INT` | NO | Investment cost per kill (`(rounds_equipped * cost) / kills`) |
 | `is_primary_weapon` | `BOOLEAN` | NO | `true` if player's #1 weapon by kills |
+| `is_squad_weapon_specialist` | `BOOLEAN` | NO | `true` for the #1 player who leads the squad in kills with this gun |
+| `top_specialist_name` | `STRING` | YES | Name of the squad member with the most kills on this weapon |
+| `specialist_badge` | `STRING` | YES | Formatted Databricks UI badge (e.g. `'🏆 Squad Odin Specialist'`, `'🏆 Top Specialist: Subham (48 kills)'`) |
 | `updated_at` | `TIMESTAMP` | NO | Record ETL update timestamp |
 
 ---
