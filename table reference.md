@@ -1242,3 +1242,37 @@ ame#tag (e.g., 'Hiroshi#nohar') |
 | `updated_at` | `TIMESTAMP` | NO | Record ETL update timestamp |
 
 ---
+
+### 4.9 `valorant.gold.gold_combat_performance`
+* **Purpose:** Weapon arsenal analytics, headshot precision per gun, and opening duel lethality (SRS Section 4, 18, 29). Slices combat efficiency by player and weapon (plus an `'ALL_SQUAD'` team rollup) to compare Vandal vs. Phantom effectiveness, identify top Operator/Sheriff specialists, and evaluate economic credit efficiency per kill.
+* **Grain:** 1 row per `player_puuid` per `weapon_name`.
+* **Composite Primary Key:** `player_puuid` + `weapon_name`
+* **Source Tables:** `valorant.silver.fact_round_player`, `valorant.silver.fact_kill_event`, `valorant.silver.dim_weapon`, `valorant.gold.gold_player_overall_summary`
+* **Write Strategy:** Incremental Delta `MERGE` (Upsert on `player_puuid` + `weapon_name`)
+
+| Column Name | Data Type | Nullable | Description |
+| :--- | :--- | :--- | :--- |
+| `player_puuid` | `STRING` | NO | Riot PUUID or `'ALL_SQUAD'` for squad total (Composite PK) |
+| `current_display_name` | `STRING` | NO | Player display name or `'Team Total'` |
+| `weapon_name` | `STRING` | NO | Weapon name (Composite PK, e.g. `'Vandal'`, `'Operator'`) |
+| `weapon_category` | `STRING` | YES | Weapon tactical category (e.g. `'Rifles'`, `'Snipers'`) |
+| `weapon_cost` | `INT` | YES | Shop cost in credits (e.g. 2900, 4700) |
+| `weapon_icon_url` | `STRING` | YES | High-res Riot CDN weapon silhouette URL |
+| `rounds_equipped` | `INT` | NO | Total rounds equipped with this weapon |
+| `rounds_won_with_weapon` | `INT` | NO | Rounds won while wielding this weapon |
+| `weapon_round_win_pct` | `DOUBLE` | NO | Round win rate with this weapon (`rounds_won / rounds_equipped`) |
+| `total_kills` | `INT` | NO | Total kills secured with this weapon |
+| `kill_share_pct` | `DOUBLE` | NO | % of player's total kills secured with this weapon |
+| `first_bloods_secured` | `INT` | NO | Opening entry kills secured with this weapon |
+| `trade_kills_secured` | `INT` | NO | Teammate revenge kills executed with this weapon |
+| `total_damage_dealt` | `INT` | NO | Total HP damage dealt with this weapon |
+| `avg_damage_per_round` | `DOUBLE` | NO | Average damage per round with this weapon |
+| `headshots` | `INT` | NO | Headshots hit with this weapon |
+| `bodyshots` | `INT` | NO | Bodyshots hit with this weapon |
+| `legshots` | `INT` | NO | Legshots hit with this weapon |
+| `weapon_headshot_pct` | `DOUBLE` | NO | Headshot accuracy % with this weapon |
+| `credits_per_kill` | `INT` | NO | Investment cost per kill (`(rounds_equipped * cost) / kills`) |
+| `is_primary_weapon` | `BOOLEAN` | NO | `true` if player's #1 weapon by kills |
+| `updated_at` | `TIMESTAMP` | NO | Record ETL update timestamp |
+
+---
