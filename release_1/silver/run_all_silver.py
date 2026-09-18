@@ -74,24 +74,56 @@ print("==========================================================")
 
 # COMMAND ----------
 # MAGIC %md
+# MAGIC ### Step 9: Execute `08_fact_round_player`
+
+# COMMAND ----------
+# MAGIC %run ./08_fact_round_player
+
+# COMMAND ----------
+# MAGIC %md
+# MAGIC ### Step 10: Execute `09_fact_kill_event`
+
+# COMMAND ----------
+# MAGIC %run ./09_fact_kill_event
+
+# COMMAND ----------
+# MAGIC %md
+# MAGIC ### Step 11: Execute `10_fact_damage_event`
+
+# COMMAND ----------
+# MAGIC %run ./10_fact_damage_event
+
+# COMMAND ----------
+# MAGIC %md
+# MAGIC ### Step 12: Execute `11_fact_spike_event`
+
+# COMMAND ----------
+# MAGIC %run ./11_fact_spike_event
+
+# COMMAND ----------
+# MAGIC %md
 # MAGIC ### Pipeline Complete — Verification Summary Across All Silver Dimensions and Facts
 
 # COMMAND ----------
 CATALOG = "valorant"
 SCHEMA = "silver"
 
-roster_cnt = spark.sql(f"SELECT COUNT(*) FROM {CATALOG}.{SCHEMA}.dim_team_roster").collect()[0][0]
-player_cnt = spark.sql(f"SELECT COUNT(*) FROM {CATALOG}.{SCHEMA}.dim_player").collect()[0][0]
-core_cnt   = spark.sql(f"SELECT COUNT(*) FROM {CATALOG}.{SCHEMA}.dim_player WHERE is_core_team = true").collect()[0][0]
-agent_cnt  = spark.sql(f"SELECT COUNT(*) FROM {CATALOG}.{SCHEMA}.dim_agent").collect()[0][0]
-map_cnt    = spark.sql(f"SELECT COUNT(*) FROM {CATALOG}.{SCHEMA}.dim_map").collect()[0][0]
-weapon_cnt = spark.sql(f"SELECT COUNT(*) FROM {CATALOG}.{SCHEMA}.dim_weapon").collect()[0][0]
-match_cnt  = spark.sql(f"SELECT COUNT(*) FROM {CATALOG}.{SCHEMA}.dim_match").collect()[0][0]
-round_cnt  = spark.sql(f"SELECT COUNT(*) FROM {CATALOG}.{SCHEMA}.fact_round").collect()[0][0]
+roster_cnt      = spark.sql(f"SELECT COUNT(*) FROM {CATALOG}.{SCHEMA}.dim_team_roster").collect()[0][0]
+player_cnt      = spark.sql(f"SELECT COUNT(*) FROM {CATALOG}.{SCHEMA}.dim_player").collect()[0][0]
+core_cnt        = spark.sql(f"SELECT COUNT(*) FROM {CATALOG}.{SCHEMA}.dim_player WHERE is_core_team = true").collect()[0][0]
+agent_cnt       = spark.sql(f"SELECT COUNT(*) FROM {CATALOG}.{SCHEMA}.dim_agent").collect()[0][0]
+map_cnt         = spark.sql(f"SELECT COUNT(*) FROM {CATALOG}.{SCHEMA}.dim_map").collect()[0][0]
+weapon_cnt      = spark.sql(f"SELECT COUNT(*) FROM {CATALOG}.{SCHEMA}.dim_weapon").collect()[0][0]
+match_cnt       = spark.sql(f"SELECT COUNT(*) FROM {CATALOG}.{SCHEMA}.dim_match").collect()[0][0]
+round_cnt       = spark.sql(f"SELECT COUNT(*) FROM {CATALOG}.{SCHEMA}.fact_round").collect()[0][0]
 player_perf_cnt = spark.sql(f"SELECT COUNT(*) FROM {CATALOG}.{SCHEMA}.fact_match_player").collect()[0][0]
+round_player_cnt= spark.sql(f"SELECT COUNT(*) FROM {CATALOG}.{SCHEMA}.fact_round_player").collect()[0][0]
+kill_event_cnt  = spark.sql(f"SELECT COUNT(*) FROM {CATALOG}.{SCHEMA}.fact_kill_event").collect()[0][0]
+damage_event_cnt= spark.sql(f"SELECT COUNT(*) FROM {CATALOG}.{SCHEMA}.fact_damage_event").collect()[0][0]
+spike_event_cnt = spark.sql(f"SELECT COUNT(*) FROM {CATALOG}.{SCHEMA}.fact_spike_event").collect()[0][0]
 
 print("==========================================================")
-print("  SILVER LAYER PIPELINE EXECUTION SUMMARY")
+print("  COMPLETE SILVER LAYER PIPELINE EXECUTION SUMMARY")
 print("==========================================================")
 print(f"  dim_team_roster   : {roster_cnt} roster members")
 print(f"  dim_player        : {player_cnt} unique players ({core_cnt} core squad)")
@@ -101,5 +133,10 @@ print(f"  dim_weapon        : {weapon_cnt} weapons")
 print(f"  dim_match         : {match_cnt} matches processed")
 print(f"  fact_round        : {round_cnt} rounds recorded")
 print(f"  fact_match_player : {player_perf_cnt} player-match scorecards")
+print(f"  fact_round_player : {round_player_cnt} round player records")
+print(f"  fact_kill_event   : {kill_event_cnt} kill events")
+print(f"  fact_damage_event : {damage_event_cnt} damage events")
+print(f"  fact_spike_event  : {spike_event_cnt} spike plant/defuse events")
 print("==========================================================")
+
 

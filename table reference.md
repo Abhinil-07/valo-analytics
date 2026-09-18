@@ -529,9 +529,157 @@ ame#tag (e.g., 'Hiroshi#nohar') |
 
 ---
 
-### Remaining Planned Silver Tables
-1. **`fact_round_player`** — Round-level player stats with assigned side (`Attack`/`Defense`), weapon buy classification, and survival status.
-2. **`fact_kill_event`** — Kill timeline with chronological `is_opening_kill` and `is_opening_death` flags.
-3. **`fact_damage_event`** — Attacker-to-receiver damage exchanges with team role tagging.
-4. **`fact_spike_event`** — Unified plant and defuse facts for post-plant analytics.
+### 3.8 `valorant.silver.fact_round_player`
+* **Purpose:** Granular round-by-round player performance (SRS Section 4, 10, 18, 23). Tracks weapons bought, shields equipped, credits spent, damage dealt, survival status, and tactical side (`Attack` vs `Defense`) for every player in every round.
+* **Grain:** 1 row per player per round per match.
+* **Composite Primary Key:** `match_id` + `round_number` + `player_puuid`
+* **Source Tables:** `valorant.bronze.bronze_round_player_stats`, `valorant.silver.fact_round`, `valorant.silver.dim_match`, `valorant.silver.dim_team_roster`, `valorant.silver.dim_weapon`
+* **Write Strategy:** Incremental Delta `MERGE` (Upsert on `match_id` + `round_number` + `player_puuid`)
+
+| Column Name | Data Type | Nullable | Description |
+| :--- | :--- | :--- | :--- |
+| `match_id` | `STRING` | NO | Unique match GUID (Composite PK) |
+| `round_number` | `INT` | NO | Round sequence 1, 2, 3... (Composite PK) |
+| `player_puuid` | `STRING` | NO | Unique Riot player PUUID (Composite PK) |
+| `player_display_name` | `STRING` | YES | Player Riot display name |
+| `player_team` | `STRING` | YES | Team color (`'Red'` or `'Blue'`) |
+| `team_perspective` | `STRING` | YES | Perspective: `'OUR_TEAM'` vs `'OPPONENT'` |
+| `is_our_team` | `BOOLEAN` | YES | True if on your squad |
+| `is_core_team` | `BOOLEAN` | YES | True if member of active 6-man roster |
+| `player_side` | `STRING` | YES | Tactical side this round: `'Attack'` or `'Defense'` |
+| `is_round_win` | `BOOLEAN` | YES | True if this player's team won this round |
+| `kills` | `INT` | YES | Kills achieved in this round |
+| `deaths` | `INT` | YES | Deaths suffered in this round (0 or 1) |
+| `assists` | `INT` | YES | Assists achieved in this round |
+| `score` | `INT` | YES | Round combat score |
+| `damage` | `INT` | YES | Total damage dealt in this round |
+| `headshots` | `INT` | YES | Headshots hit in this round |
+| `bodyshots` | `INT` | YES | Bodyshots hit in this round |
+| `legshots` | `INT` | YES | Legshots hit in this round |
+| `was_alive` | `BOOLEAN` | YES | True if player survived the round |
+| `weapon_name` | `STRING` | YES | Weapon equipped this round (e.g. `'Vandal'`, `'Operator'`) |
+| `weapon_category` | `STRING` | YES | Tactical category (`'Rifle'`, `'Sniper'`, `'Sidearm'`, etc.) |
+| `armor_name` | `STRING` | YES | Shields equipped (`'Heavy Shields'`, `'Light Shields'`, or null) |
+| `loadout_value` | `INT` | YES | Value of player's equipment this round (credits) |
+| `spent_credits` | `INT` | YES | Credits spent in buy phase |
+| `remaining_credits` | `INT` | YES | Credits remaining in player bank |
+| `round_buy_tier` | `STRING` | YES | Team buy tier (`'Pistol Round'`, `'Eco'`, `'Semi-Buy'`, `'Full Buy'`) |
+| `ultimate_casts` | `INT` | YES | Ultimate ability activations in this round |
+| `signature_casts` | `INT` | YES | Signature ability activations in this round |
+| `ability_1_casts` | `INT` | YES | Ability 1 activations in this round |
+| `ability_2_casts` | `INT` | YES | Ability 2 activations in this round |
+| `was_afk` | `BOOLEAN` | YES | True if player was AFK during this round |
+| `updated_at` | `TIMESTAMP` | NO | Record ETL update timestamp |
+
+---
+
+### 3.9 `valorant.silver.fact_kill_event`
+* **Purpose:** Event-level kill timeline for advanced combat and duel dynamics (SRS Section 4, 18, 24). Identifies First Bloods (`is_opening_kill`), opening deaths, direct revenge trade kills within 4,000ms, weapon categories, and spatial coordinates for death heatmaps.
+* **Grain:** 1 row per individual kill event.
+* **Composite Primary Key:** `match_id` + `round_number` + `kill_event_sequence`
+* **Source Tables:** `valorant.bronze.bronze_kill_event`, `valorant.silver.dim_match`, `valorant.silver.fact_round`, `valorant.silver.dim_team_roster`, `valorant.silver.dim_weapon`
+* **Write Strategy:** Incremental Delta `MERGE` (Upsert on `match_id` + `round_number` + `kill_event_sequence`)
+
+| Column Name | Data Type | Nullable | Description |
+| :--- | :--- | :--- | :--- |
+| `match_id` | `STRING` | NO | Unique match GUID (Composite PK) |
+| `round_number` | `INT` | NO | Round sequence number (Composite PK) |
+| `kill_event_sequence` | `INT` | NO | Sequence of kill within the round (Composite PK) |
+| `kill_time_in_round` | `INT` | YES | Milliseconds elapsed into round when kill occurred |
+| `kill_time_seconds` | `DOUBLE` | YES | Seconds elapsed into round when kill occurred |
+| `kill_time_in_match` | `INT` | YES | Total match milliseconds elapsed |
+| `killer_puuid` | `STRING` | YES | Player PUUID who dealt the fatal blow |
+| `killer_display_name` | `STRING` | YES | Killer display name |
+| `killer_team` | `STRING` | YES | Killer team color (`'Red'` or `'Blue'`) |
+| `is_killer_our_team` | `BOOLEAN` | YES | True if killer is on your squad |
+| `is_killer_core_team` | `BOOLEAN` | YES | True if killer is in 6-man roster |
+| `killer_side` | `STRING` | YES | Killer tactical side (`'Attack'` or `'Defense'`) |
+| `victim_puuid` | `STRING` | YES | Player PUUID who was eliminated |
+| `victim_display_name` | `STRING` | YES | Victim display name |
+| `victim_team` | `STRING` | YES | Victim team color (`'Red'` or `'Blue'`) |
+| `is_victim_our_team` | `BOOLEAN` | YES | True if victim is on your squad |
+| `is_victim_core_team` | `BOOLEAN` | YES | True if victim is in 6-man roster |
+| `victim_side` | `STRING` | YES | Victim tactical side (`'Attack'` or `'Defense'`) |
+| `is_opening_kill` | `BOOLEAN` | YES | True if 1st kill of the round (First Blood) |
+| `is_opening_death` | `BOOLEAN` | YES | True if 1st victim of the round |
+| `is_trade_kill` | `BOOLEAN` | YES | True if killer avenged teammate on the exact enemy <= 4s ago |
+| `was_traded_death` | `BOOLEAN` | YES | True if victim was avenged by teammate <= 4s later |
+| `damage_weapon_name` | `STRING` | YES | Weapon or ability that caused the death |
+| `weapon_category` | `STRING` | YES | Tactical category (`'Rifle'`, `'Sniper'`, `'Sidearm'`, etc.) |
+| `secondary_fire_mode` | `BOOLEAN` | YES | True if weapon secondary fire was active (e.g. Bucky alt) |
+| `assist_count` | `INT` | YES | Count of assisting teammates |
+| `victim_death_x` | `DOUBLE` | YES | Map coordinate X where victim died |
+| `victim_death_y` | `DOUBLE` | YES | Map coordinate Y where victim died |
+| `is_our_team_round_win` | `BOOLEAN` | YES | True if your squad won this round |
+| `updated_at` | `TIMESTAMP` | NO | Record ETL update timestamp |
+
+---
+
+### 3.10 `valorant.silver.fact_damage_event`
+* **Purpose:** Granular damage exchanges between players (SRS Section 4, 18, 24). Records each attacker-to-victim combat engagement with hit distributions (head/body/leg) and duel accuracy.
+* **Grain:** 1 row per attacker-victim exchange per round.
+* **Composite Primary Key:** `match_id` + `round_number` + `damage_event_sequence` + `attacker_puuid`
+* **Source Tables:** `valorant.bronze.bronze_damage_event`, `valorant.silver.dim_match`, `valorant.silver.fact_round`, `valorant.silver.dim_team_roster`
+* **Write Strategy:** Incremental Delta `MERGE` (Upsert on `match_id` + `round_number` + `damage_event_sequence` + `attacker_puuid`)
+
+| Column Name | Data Type | Nullable | Description |
+| :--- | :--- | :--- | :--- |
+| `match_id` | `STRING` | NO | Unique match GUID (Composite PK) |
+| `round_number` | `INT` | NO | Round sequence number (Composite PK) |
+| `damage_event_sequence` | `INT` | NO | Sequence of damage event within round (Composite PK) |
+| `attacker_puuid` | `STRING` | NO | Attacker player PUUID (Composite PK) |
+| `attacker_display_name` | `STRING` | YES | Attacker display name |
+| `attacker_team` | `STRING` | YES | Attacker team color (`'Red'` or `'Blue'`) |
+| `is_attacker_our_team` | `BOOLEAN` | YES | True if attacker is on your squad |
+| `is_attacker_core_team` | `BOOLEAN` | YES | True if attacker is in 6-man roster |
+| `attacker_side` | `STRING` | YES | Attacker tactical side (`'Attack'` or `'Defense'`) |
+| `receiver_puuid` | `STRING` | YES | Receiver (victim) player PUUID |
+| `receiver_display_name` | `STRING` | YES | Receiver display name |
+| `receiver_team` | `STRING` | YES | Receiver team color (`'Red'` or `'Blue'`) |
+| `is_receiver_our_team` | `BOOLEAN` | YES | True if receiver is on your squad |
+| `is_receiver_core_team` | `BOOLEAN` | YES | True if receiver is in 6-man roster |
+| `receiver_side` | `STRING` | YES | Receiver tactical side (`'Attack'` or `'Defense'`) |
+| `damage` | `INT` | YES | Total HP damage dealt in this engagement |
+| `headshots` | `INT` | YES | Headshots landed on receiver |
+| `bodyshots` | `INT` | YES | Bodyshots landed on receiver |
+| `legshots` | `INT` | YES | Legshots landed on receiver |
+| `total_shots` | `INT` | YES | Sum of all shots landed |
+| `engagement_headshot_pct` | `DOUBLE` | YES | Percentage of landed shots hitting the head |
+| `is_our_team_round_win` | `BOOLEAN` | YES | True if your squad won this round |
+| `updated_at` | `TIMESTAMP` | NO | Record ETL update timestamp |
+
+---
+
+### 3.11 `valorant.silver.fact_spike_event`
+* **Purpose:** Unified spike objective analytics (SRS Section 9, 24, 27). Combines spike plants and defusals into a unified event model to track bomb site execution (`A`, `B`, `C`), post-plant durations, and conversion success rates.
+* **Grain:** 1 row per spike plant or defuse event in a round.
+* **Composite Primary Key:** `match_id` + `round_number` + `event_type` + `event_sequence`
+* **Source Tables:** `valorant.bronze.bronze_plant_event`, `valorant.bronze.bronze_defuse_event`, `valorant.silver.dim_match`, `valorant.silver.fact_round`, `valorant.silver.dim_team_roster`
+* **Write Strategy:** Incremental Delta `MERGE` (Upsert on `match_id` + `round_number` + `event_type` + `event_sequence`)
+
+| Column Name | Data Type | Nullable | Description |
+| :--- | :--- | :--- | :--- |
+| `match_id` | `STRING` | NO | Unique match GUID (Composite PK) |
+| `round_number` | `INT` | NO | Round sequence number (Composite PK) |
+| `event_type` | `STRING` | NO | Event action: `'PLANT'` or `'DEFUSE'` (Composite PK) |
+| `event_sequence` | `INT` | NO | Sequence of event within round (Composite PK) |
+| `event_time_in_round` | `INT` | YES | Milliseconds elapsed into round |
+| `event_time_seconds` | `DOUBLE` | YES | Seconds elapsed into round |
+| `site` | `STRING` | YES | Bomb site target: `'A'`, `'B'`, or `'C'` |
+| `player_puuid` | `STRING` | YES | Player who planted or defused the spike |
+| `player_display_name` | `STRING` | YES | Player display name |
+| `player_team` | `STRING` | YES | Player team color (`'Red'` or `'Blue'`) |
+| `team_perspective` | `STRING` | YES | Perspective: `'OUR_TEAM'` vs `'OPPONENT'` |
+| `is_our_team` | `BOOLEAN` | YES | True if action executed by your squad |
+| `is_core_team` | `BOOLEAN` | YES | True if action executed by 6-man roster member |
+| `event_location_x` | `DOUBLE` | YES | Map coordinate X of plant or defuse |
+| `event_location_y` | `DOUBLE` | YES | Map coordinate Y of plant or defuse |
+| `round_winner` | `STRING` | YES | Winning team color (`'Red'` or `'Blue'`) |
+| `is_our_team_round_win` | `BOOLEAN` | YES | True if your squad won this round |
+| `round_end_type` | `STRING` | YES | Round conclusion (`'Bomb defused'`, `'Bomb detonated'`, `'Eliminated'`) |
+| `is_spike_converted` | `BOOLEAN` | YES | True if objective converted (detonated for plant, defused for defuse) |
+| `updated_at` | `TIMESTAMP` | NO | Record ETL update timestamp |
+
+---
+
 
