@@ -1167,3 +1167,47 @@ ame#tag (e.g., 'Hiroshi#nohar') |
 | `updated_at` | `TIMESTAMP` | NO | Record ETL update timestamp |
 
 ---
+
+### 4.7 `valorant.gold.gold_attack_defense_performance`
+* **Purpose:** Macro Attack vs. Defense conversion diagnostics, starting side momentum, and halftime closeout analytics (SRS Section 4, 18, 29). Slices squad performance by tactical side (`'Attack'` vs `'Defense'`) both per map and across an `'ALL_MAPS'` macro rollup. Tracks First Blood win rates, First Death loss penalties, pistol conversion, anti-eco stability, and halftime lead conversions.
+* **Grain:** 1 row per `map_name` per `tactical_side`.
+* **Composite Primary Key:** `map_name` + `tactical_side`
+* **Source Tables:** `valorant.silver.fact_round`, `valorant.silver.dim_match`, `valorant.silver.fact_kill_event`, `valorant.silver.fact_round_player`
+* **Write Strategy:** Incremental Delta `MERGE` (Upsert on `map_name` + `tactical_side`)
+
+| Column Name | Data Type | Nullable | Description |
+| :--- | :--- | :--- | :--- |
+| `map_name` | `STRING` | NO | Map name or `'ALL_MAPS'` for squad macro rollup (Composite PK) |
+| `tactical_side` | `STRING` | NO | Tactical side: `'Attack'` or `'Defense'` (Composite PK) |
+| `rounds_played` | `INT` | NO | Total rounds contested on this side |
+| `rounds_won` | `INT` | NO | Total rounds won on this side |
+| `rounds_lost` | `INT` | NO | Total rounds lost on this side |
+| `side_win_pct` | `DOUBLE` | NO | Round win rate on this side (`rounds_won / rounds_played`) |
+| `matches_started_on_side` | `INT` | NO | Matches where your squad started on this side |
+| `match_wins_started_on_side` | `INT` | NO | Match victories when starting on this side |
+| `starting_side_match_win_pct` | `DOUBLE` | NO | Overall match win percentage when starting on this side |
+| `avg_first_half_rounds_won` | `DOUBLE` | NO | Average rounds won in the first half when starting on this side |
+| `first_blood_rounds` | `INT` | NO | Rounds where your squad secured opening kill |
+| `first_blood_wins` | `INT` | NO | Rounds won after securing First Blood |
+| `first_blood_conversion_pct` | `DOUBLE` | NO | Win rate after getting opening kill (FB conversion %) |
+| `first_death_rounds` | `INT` | NO | Rounds where your squad suffered opening death |
+| `first_death_losses` | `INT` | NO | Rounds lost after suffering opening death |
+| `first_death_loss_pct` | `DOUBLE` | NO | Round loss rate after suffering opening death |
+| `pistol_rounds_played` | `INT` | NO | Pistol rounds contested on this side (Round 1 or 13) |
+| `pistol_rounds_won` | `INT` | NO | Pistol rounds won on this side |
+| `pistol_win_pct` | `DOUBLE` | NO | Pistol round win percentage on this side |
+| `anti_eco_rounds_played` | `INT` | NO | Anti-eco rounds following a pistol victory (Round 2 or 14) |
+| `anti_eco_rounds_won` | `INT` | NO | Anti-eco rounds successfully converted |
+| `anti_eco_conversion_pct` | `DOUBLE` | NO | Conversion rate on anti-eco rounds |
+| `team_kills` | `INT` | NO | Total eliminations secured on this side |
+| `team_deaths` | `INT` | NO | Total casualties suffered on this side |
+| `team_kd_ratio` | `DOUBLE` | NO | Team K/D ratio on this side |
+| `spikes_planted` | `INT` | NO | Total spikes planted (Attack) |
+| `spikes_defused` | `INT` | NO | Total spikes defused (Defense) |
+| `thrifty_rounds_won` | `INT` | NO | Underdog thrifty rounds won on this side |
+| `leading_at_half_matches` | `INT` | NO | Matches where squad led at halftime after starting on this side |
+| `leading_at_half_wins` | `INT` | NO | Match victories when leading at halftime |
+| `halftime_lead_conversion_pct` | `DOUBLE` | NO | Win conversion rate when leading at halftime |
+| `updated_at` | `TIMESTAMP` | NO | Record ETL update timestamp |
+
+---
