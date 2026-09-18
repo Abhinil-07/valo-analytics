@@ -682,4 +682,50 @@ ame#tag (e.g., 'Hiroshi#nohar') |
 
 ---
 
+## 4. Gold Layer Tables
 
+### 4.1 `valorant.gold.gold_match_summary`
+* **Purpose:** Executive match overview for Match History and Overview dashboard pages. Pre-aggregates match duration, scores, Attack/Defense win rates, team combat statistics, and resolves the Match MVP.
+* **Grain:** 1 row per match.
+* **Primary Key:** `match_id`
+* **Source Tables:** `valorant.silver.dim_match`, `valorant.silver.dim_map`, `valorant.silver.fact_round`, `valorant.silver.fact_match_player`
+* **Write Strategy:** Incremental Delta `MERGE` (Upsert on `match_id`)
+
+| Column Name | Data Type | Nullable | Description |
+| :--- | :--- | :--- | :--- |
+| `match_id` | `STRING` | NO | Unique match GUID (Primary Key) |
+| `match_date` | `DATE` | NO | Calendar date match was played |
+| `match_start_timestamp` | `TIMESTAMP` | NO | UTC match start timestamp |
+| `map_name` | `STRING` | NO | Map played (e.g. `'Ascent'`, `'Haven'`) |
+| `map_splash_url` | `STRING` | YES | High-res map splash artwork from Riot CDN |
+| `game_duration_seconds` | `INT` | YES | Match duration in seconds |
+| `game_duration_minutes` | `DOUBLE` | YES | Match duration in minutes |
+| `rounds_played` | `INT` | NO | Total rounds played in match |
+| `is_overtime` | `BOOLEAN` | NO | True if match extended past 24 rounds |
+| `our_team_color` | `STRING` | YES | Team color (`'Red'` or `'Blue'`) |
+| `our_team_rounds_won` | `INT` | YES | Total rounds won by your squad |
+| `opponent_rounds_won` | `INT` | YES | Total rounds won by opponent squad |
+| `score_display` | `STRING` | YES | Clean score format for UI (e.g. `'13 - 8'`) |
+| `round_differential` | `INT` | YES | Net round differential (+/-) |
+| `match_outcome` | `STRING` | YES | Result: `'VICTORY'`, `'DEFEAT'`, or `'DRAW'` |
+| `is_our_team_win` | `BOOLEAN` | YES | True if your squad won the match |
+| `attack_rounds_played` | `INT` | YES | Total rounds played on Attack |
+| `attack_rounds_won` | `INT` | YES | Total rounds won on Attack |
+| `attack_win_pct` | `DOUBLE` | YES | Attack conversion win percentage |
+| `defense_rounds_played` | `INT` | YES | Total rounds played on Defense |
+| `defense_rounds_won` | `INT` | YES | Total rounds won on Defense |
+| `defense_win_pct` | `DOUBLE` | YES | Defense hold win percentage |
+| `team_kills` | `INT` | YES | Total kills achieved by your 5 squad members |
+| `team_deaths` | `INT` | YES | Total deaths suffered by your 5 squad members |
+| `team_assists` | `INT` | YES | Total assists achieved by your 5 squad members |
+| `team_kd_ratio` | `DOUBLE` | YES | Team K/D ratio (`team_kills / team_deaths`) |
+| `team_damage_dealt` | `INT` | YES | Total damage dealt by your squad |
+| `team_damage_received` | `INT` | YES | Total damage received by your squad |
+| `team_damage_differential` | `INT` | YES | Net damage differential (+/-) |
+| `thrifty_rounds_won` | `INT` | YES | Rounds won with $\ge$ 5,000 credit deficit |
+| `match_mvp_player` | `STRING` | YES | Name of your squad member with highest ACS |
+| `match_mvp_agent` | `STRING` | YES | Agent played by the match MVP |
+| `match_mvp_acs` | `DOUBLE` | YES | Average Combat Score of the match MVP |
+| `updated_at` | `TIMESTAMP` | NO | Record ETL update timestamp |
+
+---
