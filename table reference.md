@@ -429,7 +429,7 @@ ame#tag (e.g., 'Hiroshi#nohar') |
 | game_duration_minutes | DOUBLE | YES | Match duration in minutes |
 | rounds_played | INT | NO | Total rounds played in match |
 | is_overtime | BOOLEAN | NO | True if match extended past 24 rounds |
-| our_team_side | STRING | YES | Which side your squad played on ('Red' or 'Blue') |
+| our_team_color | STRING | YES | Which team color your squad played on ('Red' or 'Blue') |
 | our_team_rounds_won | INT | YES | Rounds won by your team |
 | opponent_rounds_won | INT | YES | Rounds won by opponent team |
 | round_differential | INT | YES | Round differential (+/-) |
@@ -474,10 +474,64 @@ ame#tag (e.g., 'Hiroshi#nohar') |
 
 ---
 
+### 3.7 `valorant.silver.fact_match_player`
+* **Purpose:** Canonical match-level player scorecard (SRS Section 4, 18, 23 & 29). Enriches raw player stats with:
+  1. **Team Perspective:** Maps players to `is_our_team` and `team_perspective` (`OUR_TEAM` vs `OPPONENT`).
+  2. **Core Combat KPIs:** Computes `kill_death_ratio`, `kill_differential`, `average_combat_score` (ACS), `average_damage_per_round` (ADR), and `damage_differential`.
+  3. **Shooting Accuracy:** Breaks down shot distribution into `headshot_pct`, `bodyshot_pct`, and `legshot_pct`.
+  4. **Utility & Economy:** Aggregates ability casts (`ultimate_casts`, `signature_casts`, `ability_1_casts`, `ability_2_casts`, `total_ability_casts`) and credit spend.
+* **Grain:** 1 row per player per match (10 rows per 5v5 match).
+* **Composite Primary Key:** `match_id` + `player_puuid`
+* **Source Tables:** `valorant.bronze.bronze_player`, `valorant.silver.dim_match`, `valorant.silver.dim_team_roster`
+* **Write Strategy:** Incremental Delta `MERGE` (Upsert on `match_id` + `player_puuid`)
+
+| Column Name | Data Type | Nullable | Description |
+| :--- | :--- | :--- | :--- |
+| `match_id` | `STRING` | NO | Unique match GUID (Composite PK) |
+| `player_puuid` | `STRING` | NO | Unique Riot player PUUID (Composite PK) |
+| `player_name` | `STRING` | YES | Riot player name |
+| `player_tag` | `STRING` | YES | Riot tagline |
+| `current_display_name` | `STRING` | YES | Unified name#tag |
+| `team` | `STRING` | YES | Team color (`'Red'` or `'Blue'`) |
+| `team_perspective` | `STRING` | YES | Perspective: `'OUR_TEAM'` vs `'OPPONENT'` |
+| `is_our_team` | `BOOLEAN` | YES | True if on your squad |
+| `is_core_team` | `BOOLEAN` | YES | True if member of active 6-man roster |
+| `agent_name` | `STRING` | YES | Agent played (joins to `dim_agent`) |
+| `competitive_rank` | `STRING` | YES | Competitive tier name (e.g. `'Silver 3'`) |
+| `account_level` | `INT` | YES | Player account level |
+| `score` | `INT` | YES | Total match combat score |
+| `average_combat_score` | `DOUBLE` | YES | Combat score divided by rounds played (ACS) |
+| `kills` | `INT` | YES | Total match kills |
+| `deaths` | `INT` | YES | Total match deaths |
+| `assists` | `INT` | YES | Total match assists |
+| `kill_death_ratio` | `DOUBLE` | YES | Safe K/D ratio (`kills / max(deaths, 1)`) |
+| `kill_differential` | `INT` | YES | Kills minus deaths |
+| `damage_made` | `INT` | YES | Total damage dealt |
+| `damage_received` | `INT` | YES | Total damage taken |
+| `damage_differential` | `INT` | YES | Net damage dealt minus taken |
+| `average_damage_per_round` | `DOUBLE` | YES | Average damage dealt per round (ADR) |
+| `headshots` | `INT` | YES | Total headshots landed |
+| `bodyshots` | `INT` | YES | Total bodyshots landed |
+| `legshots` | `INT` | YES | Total legshots landed |
+| `headshot_pct` | `DOUBLE` | YES | Percentage of landed shots that hit the head |
+| `bodyshot_pct` | `DOUBLE` | YES | Percentage of landed shots that hit the body |
+| `legshot_pct` | `DOUBLE` | YES | Percentage of landed shots that hit the legs |
+| `ultimate_casts` | `INT` | YES | Ultimate ability activations (`X` key) |
+| `signature_casts` | `INT` | YES | Signature ability activations (`E` key) |
+| `ability_1_casts` | `INT` | YES | First ability activations (`Q` key) |
+| `ability_2_casts` | `INT` | YES | Second ability activations (`C` key) |
+| `total_ability_casts` | `INT` | YES | Sum of all tactical abilities used |
+| `spent_overall` | `INT` | YES | Total credits spent on loadout |
+| `spent_average` | `DOUBLE` | YES | Average credits spent per round |
+| `loadout_value_average` | `DOUBLE` | YES | Average loadout value per round |
+| `is_match_win` | `BOOLEAN` | YES | True if this player's team won the match |
+| `updated_at` | `TIMESTAMP` | NO | Record ETL update timestamp |
+
+---
+
 ### Remaining Planned Silver Tables
-5. **fact_round** — Round outcomes enriched with ttack_team, defense_team, our_team_side, and is_our_team_win.
-6. **fact_match_player** — Match-level player scorecard (K/D, ADR, Headshot %, Combat Score).
-7. **fact_round_player** — Round-level player stats with assigned side (Attack/Defense), weapon buy classification, and survival status.
-8. **fact_kill_event** — Kill timeline with chronological is_opening_kill and is_opening_death flags.
-9. **fact_damage_event** — Attacker-to-receiver damage exchanges with team role tagging.
-10. **fact_spike_event** — Unified plant and defuse facts for post-plant analytics.
+1. **`fact_round_player`** — Round-level player stats with assigned side (`Attack`/`Defense`), weapon buy classification, and survival status.
+2. **`fact_kill_event`** — Kill timeline with chronological `is_opening_kill` and `is_opening_death` flags.
+3. **`fact_damage_event`** — Attacker-to-receiver damage exchanges with team role tagging.
+4. **`fact_spike_event`** — Unified plant and defuse facts for post-plant analytics.
+

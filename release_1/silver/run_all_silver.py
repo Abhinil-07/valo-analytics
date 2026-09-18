@@ -60,7 +60,21 @@ print("==========================================================")
 
 # COMMAND ----------
 # MAGIC %md
-# MAGIC ### Pipeline Complete — Verification Summary Across All Silver Dimensions
+# MAGIC ### Step 7: Execute `06_fact_round`
+
+# COMMAND ----------
+# MAGIC %run ./06_fact_round
+
+# COMMAND ----------
+# MAGIC %md
+# MAGIC ### Step 8: Execute `07_fact_match_player`
+
+# COMMAND ----------
+# MAGIC %run ./07_fact_match_player
+
+# COMMAND ----------
+# MAGIC %md
+# MAGIC ### Pipeline Complete — Verification Summary Across All Silver Dimensions and Facts
 
 # COMMAND ----------
 CATALOG = "valorant"
@@ -73,16 +87,19 @@ agent_cnt  = spark.sql(f"SELECT COUNT(*) FROM {CATALOG}.{SCHEMA}.dim_agent").col
 map_cnt    = spark.sql(f"SELECT COUNT(*) FROM {CATALOG}.{SCHEMA}.dim_map").collect()[0][0]
 weapon_cnt = spark.sql(f"SELECT COUNT(*) FROM {CATALOG}.{SCHEMA}.dim_weapon").collect()[0][0]
 match_cnt  = spark.sql(f"SELECT COUNT(*) FROM {CATALOG}.{SCHEMA}.dim_match").collect()[0][0]
-wins_cnt   = spark.sql(f"SELECT COUNT(*) FROM {CATALOG}.{SCHEMA}.dim_match WHERE match_outcome = 'VICTORY'").collect()[0][0]
-loss_cnt   = spark.sql(f"SELECT COUNT(*) FROM {CATALOG}.{SCHEMA}.dim_match WHERE match_outcome = 'DEFEAT'").collect()[0][0]
+round_cnt  = spark.sql(f"SELECT COUNT(*) FROM {CATALOG}.{SCHEMA}.fact_round").collect()[0][0]
+player_perf_cnt = spark.sql(f"SELECT COUNT(*) FROM {CATALOG}.{SCHEMA}.fact_match_player").collect()[0][0]
 
 print("==========================================================")
-print("  SILVER DIMENSIONS PIPELINE EXECUTION SUMMARY")
+print("  SILVER LAYER PIPELINE EXECUTION SUMMARY")
 print("==========================================================")
-print(f"  dim_team_roster : {roster_cnt} roster members")
-print(f"  dim_player      : {player_cnt} unique players ({core_cnt} core squad)")
-print(f"  dim_agent       : {agent_cnt} agents")
-print(f"  dim_map         : {map_cnt} maps")
-print(f"  dim_weapon      : {weapon_cnt} weapons")
-print(f"  dim_match       : {match_cnt} matches processed ({wins_cnt} Wins, {loss_cnt} Losses)")
+print(f"  dim_team_roster   : {roster_cnt} roster members")
+print(f"  dim_player        : {player_cnt} unique players ({core_cnt} core squad)")
+print(f"  dim_agent         : {agent_cnt} agents")
+print(f"  dim_map           : {map_cnt} maps")
+print(f"  dim_weapon        : {weapon_cnt} weapons")
+print(f"  dim_match         : {match_cnt} matches processed")
+print(f"  fact_round        : {round_cnt} rounds recorded")
+print(f"  fact_match_player : {player_perf_cnt} player-match scorecards")
 print("==========================================================")
+
