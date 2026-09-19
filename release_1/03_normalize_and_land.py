@@ -43,11 +43,13 @@ VOLUME = "data"
 
 RAW_HISTORICAL_PATH = f"/Volumes/{CATALOG}/{RAW_SCHEMA}/{VOLUME}/historical"
 RAW_API_PATH = f"/Volumes/{CATALOG}/{RAW_SCHEMA}/{VOLUME}/api"
+RAW_DISCORD_PATH = f"/Volumes/{CATALOG}/{RAW_SCHEMA}/{VOLUME}/discord"
 LANDING_BASE_PATH = f"/Volumes/{CATALOG}/{LANDING_SCHEMA}/{VOLUME}/matches"
 CONTROL_TABLE = f"{CATALOG}.{LANDING_SCHEMA}.ingestion_control"
 
 print(f"Historical Raw Path: {RAW_HISTORICAL_PATH}")
 print(f"API Raw Path:        {RAW_API_PATH}")
+print(f"Discord Raw Path:    {RAW_DISCORD_PATH}")
 print(f"Canonical Landing:   {LANDING_BASE_PATH}")
 print(f"Control Table:       {CONTROL_TABLE}")
 
@@ -202,12 +204,15 @@ print("Normalization functions compiled.")
 historical_files = []
 
 api_files = glob.glob(f"{RAW_API_PATH}/**/*.json", recursive=True)
+discord_files = glob.glob(f"{RAW_DISCORD_PATH}/**/*.json", recursive=True)
 
 all_raw_files = [(f, "github", "historical") for f in historical_files] + \
-                [(f, "api", "incremental") for f in api_files]
+                [(f, "api", "incremental") for f in api_files] + \
+                [(f, "discord", "backfill") for f in discord_files]
 
 print(f"Discovered {len(historical_files)} historical raw file(s) (Skipped - already landed).")
 print(f"Discovered {len(api_files)} live API raw file(s).")
+print(f"Discovered {len(discord_files)} Discord raw file(s).")
 print(f"Total raw source files to process: {len(all_raw_files)}")
 
 # COMMAND ----------
