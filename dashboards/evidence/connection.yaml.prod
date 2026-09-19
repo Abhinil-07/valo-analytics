@@ -1,0 +1,9 @@
+type: databricks
+host: dbc-4b2639ec-6f18.cloud.databricks.com
+http_path: /sql/1.0/warehouses/e3efbe9a07ed60f8
+token: ${DATABRICKS_TOKEN}
+catalog: valorant
+schema: gold
+schemas:
+  - gold
+  - silver

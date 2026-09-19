@@ -43,3 +43,9 @@ htmlcov/
 local_landing/
 scratch/
 .env
+connection.yaml
+**/connection.yaml
+.evidence/
+**/evidence.db
+*.png
+

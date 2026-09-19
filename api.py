@@ -9,7 +9,7 @@ url = f"https://api.henrikdev.xyz/valorant/v3/by-puuid/matches/{region}/{puuid}"
 
 params = {
     "mode": "competitive",
-    "size": 2
+    "size": 20
 }
 
 # Recommended: keep your key out of source code.

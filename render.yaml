@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: valo-analytics
+    runtime: docker
+    rootDir: dashboards/evidence
+    dockerfilePath: ./Dockerfile
+    plan: free
+    region: oregon
+    envVars:
+      - key: DATABRICKS_TOKEN
+        sync: false
+      - key: EVIDENCE_AUTH_DISABLED
+        value: "true"
+      - key: PORT
+        value: "3000"
