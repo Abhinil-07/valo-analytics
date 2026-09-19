@@ -1,0 +1,16 @@
+# Databricks SQL Warehouse Connection Configuration for Evidence.dev
+# Instructions:
+# 1. In Databricks, go to SQL Warehouses -> Select your warehouse -> Connection details tab.
+# 2. Copy "Server hostname" and "HTTP path".
+# 3. Generate a Personal Access Token (PAT) under User Settings -> Developer -> Access tokens.
+# 4. Copy this file to "connection.yaml" (which is git-ignored) and paste your credentials.
+
+type: databricks
+host: dbc-xxxx.cloud.databricks.com
+http_path: /sql/1.0/warehouses/xxxx
+token: dapi_your_personal_access_token_here
+catalog: valorant
+schema: gold
+schemas:
+  - gold
+  - silver
