@@ -235,7 +235,8 @@ for file_path, default_source, load_type in all_raw_files:
             raw_content = json.load(f)
 
         src_type, raw_matches = detect_and_unwrap(raw_content)
-        final_source = src_type if src_type != "unknown" else default_source
+        # Prioritize the actual ingestion transport (discord / api / github)
+        final_source = default_source if default_source else (src_type if src_type != "unknown" else "unknown")
 
         for raw_m in raw_matches:
             try:
