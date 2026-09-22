@@ -119,14 +119,33 @@ plant_first_df = plant_df.withColumn(
     "rn", F.row_number().over(plant_window)
 ).filter(F.col("rn") == 1).drop("rn")
 
-# 3. Find Starting Attacker for Each Match (from 1st half plants)
-first_half_plants = plant_df.filter(F.col("round_number") <= 12).filter(F.col("planter_team").isNotNull())
-plant_match_window = Window.partitionBy("match_id").orderBy("round_number")
+# 3. Find Starting Attacker for Each Match
+# Tier 1: Search for earliest valid plant in rounds 1–12
+first_half_plants = plant_df.filter(
+    (F.col("round_number") <= 12) & 
+    (F.col("planter_team").isin("Red", "Blue"))
+)
+first_half_window = Window.partitionBy("match_id").orderBy("round_number")
 starting_attack_df = first_half_plants.withColumn(
-    "rn", F.row_number().over(plant_match_window)
+    "rn", F.row_number().over(first_half_window)
 ).filter(F.col("rn") == 1).select(
     F.col("match_id"),
-    F.col("planter_team").alias("start_attacker")
+    F.col("planter_team").alias("start_attacker_1st_half")
+)
+
+# Tier 2 (Fallback): If no plants occurred in rounds 1–12, deduce starting side from rounds 13–24
+# In second half, sides swap. If Red plants in round 13, Blue was the attacker in round 1!
+second_half_plants = plant_df.filter(
+    (F.col("round_number") > 12) & 
+    (F.col("round_number") <= 24) & 
+    (F.col("planter_team").isin("Red", "Blue"))
+)
+second_half_window = Window.partitionBy("match_id").orderBy("round_number")
+deduced_starting_attack_df = second_half_plants.withColumn(
+    "rn", F.row_number().over(second_half_window)
+).filter(F.col("rn") == 1).select(
+    F.col("match_id"),
+    F.when(F.col("planter_team") == "Red", "Blue").otherwise("Red").alias("start_attacker_2nd_half_deduced")
 )
 
 # 4. Economy Aggregations per Team per Round from bronze_round_player_stats
@@ -172,6 +191,10 @@ staged_fact_round_df = round_df.join(
     on="match_id",
     how="left"
 ).join(
+    deduced_starting_attack_df,
+    on="match_id",
+    how="left"
+).join(
     red_loadout_df,
     on=["match_id", "round_number"],
     how="left"
@@ -184,8 +207,13 @@ staged_fact_round_df = round_df.join(
     on="match_id",
     how="left"
 ).withColumn(
-    # Fallback to 'Red' if no spike was planted in first 12 rounds
-    "base_attacker", F.coalesce(F.col("start_attacker"), F.lit("Red"))
+    # Hierarchy: 1. Real plant in 1st half -> 2. Deduced from 2nd half plant -> 3. Red (safety guard)
+    "base_attacker", 
+    F.coalesce(
+        F.col("start_attacker_1st_half"),
+        F.col("start_attacker_2nd_half_deduced"),
+        F.lit("Red")
+    )
 ).withColumn(
     "base_defender", F.when(F.col("base_attacker") == "Red", "Blue").otherwise("Red")
 ).withColumn(
@@ -353,10 +381,15 @@ total_rounds = spark.sql(f"SELECT COUNT(*) FROM {TARGET_TABLE}").collect()[0][0]
 our_wins = spark.sql(f"SELECT COUNT(*) FROM {TARGET_TABLE} WHERE is_our_team_win = true").collect()[0][0]
 thrifty_wins = spark.sql(f"SELECT COUNT(*) FROM {TARGET_TABLE} WHERE is_thrifty = true").collect()[0][0]
 
+# DQ Validation Check: Ensure no rounds have unassigned team sides
+null_sides = spark.sql(f"SELECT COUNT(*) FROM {TARGET_TABLE} WHERE our_team_side IS NULL").collect()[0][0]
+assert null_sides == 0, f"DQ ERROR: Found {null_sides} rounds with NULL our_team_side!"
+
 print("=== fact_round Summary ===")
 print(f"Total rounds recorded: {total_rounds}")
 print(f"Rounds won by our squad: {our_wins} ({round(our_wins*100.0/total_rounds, 1) if total_rounds > 0 else 0}%)")
 print(f"Thrifty (eco/budget) wins: {thrifty_wins}")
+print(f"Rounds with NULL side: {null_sides} (Passed DQ check)")
 
 # Tactical Breakdown: Attack vs Defense Win Rates
 display(spark.sql(f"""
