@@ -267,13 +267,24 @@ assert stats["invalid_rounds"] == 0, "DQ ERROR: invalid round_number found!"
 assert stats["null_puuids"] == 0, "DQ ERROR: null player_puuid found!"
 assert stats["total_rows"] == stats["distinct_keys"], "DQ ERROR: duplicate composite key found!"
 
-# Source count reconciliation
+# Source count reconciliation (Scoped to current batch)
 expected_pstat_count = sum(
     len(r.get("player_stats", []))
     for m in unique_matches.values()
     for r in m.get("rounds", [])
 )
-assert stats["total_rows"] == expected_pstat_count, f"Source reconciliation failed! Expected {expected_pstat_count}, found {stats['total_rows']}"
-print(f"Reconciliation SUCCESS: Exact match with source player_stats count ({expected_pstat_count} rows).")
+
+batch_mids = list(unique_matches.keys())
+if batch_mids:
+    mids_clause = ", ".join(f"'{m}'" for m in batch_mids)
+    batch_actual = spark.sql(f"""
+        SELECT COUNT(*) AS cnt 
+        FROM {TARGET_TABLE} 
+        WHERE match_id IN ({mids_clause})
+    """).collect()[0]["cnt"]
+    assert batch_actual == expected_pstat_count, (
+        f"Source reconciliation failed! Expected {expected_pstat_count} player stats for batch, found {batch_actual} in Bronze"
+    )
+    print(f"Reconciliation SUCCESS: Exact match with source player_stats count ({expected_pstat_count} rows in batch).")
 
 display(spark.sql(f"SELECT * FROM {TARGET_TABLE} LIMIT 15"))

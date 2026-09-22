@@ -284,9 +284,20 @@ assert stats["null_matches"] == 0, "DQ ERROR: null match_id found!"
 assert stats["null_sequences"] == 0, "DQ ERROR: null kill_event_sequence found!"
 assert stats["total_rows"] == stats["distinct_keys"], "DQ ERROR: duplicate composite key found!"
 
-# Source count reconciliation
+# Source count reconciliation (Scoped to current batch)
 expected_kills_count = sum(len(m.get("kills", [])) for m in unique_matches.values())
-assert stats["total_rows"] == expected_kills_count, f"Source reconciliation failed! Expected {expected_kills_count}, found {stats['total_rows']}"
-print(f"Reconciliation SUCCESS: Exact match with source kills count ({expected_kills_count} rows).")
+
+batch_mids = list(unique_matches.keys())
+if batch_mids:
+    mids_clause = ", ".join(f"'{m}'" for m in batch_mids)
+    batch_actual = spark.sql(f"""
+        SELECT COUNT(*) AS cnt 
+        FROM {TARGET_TABLE} 
+        WHERE match_id IN ({mids_clause})
+    """).collect()[0]["cnt"]
+    assert batch_actual == expected_kills_count, (
+        f"Source reconciliation failed! Expected {expected_kills_count} kills for batch, found {batch_actual} in Bronze"
+    )
+    print(f"Reconciliation SUCCESS: Exact match with source kills count ({expected_kills_count} rows in batch).")
 
 display(spark.sql(f"SELECT * FROM {TARGET_TABLE} LIMIT 15"))

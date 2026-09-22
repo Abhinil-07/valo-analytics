@@ -227,15 +227,26 @@ assert stats["null_attackers"] == 0, "DQ ERROR: null attacker_puuid found!"
 assert stats["null_sequences"] == 0, "DQ ERROR: null damage_event_sequence found!"
 assert stats["total_rows"] == stats["distinct_keys"], "DQ ERROR: duplicate composite key found!"
 
-# Source count reconciliation
+# Source count reconciliation (Scoped to current batch)
 expected_dmg_count = sum(
     len(ps.get("damage_events", []))
     for m in unique_matches.values()
     for r in m.get("rounds", [])
     for ps in r.get("player_stats", [])
 )
-assert stats["total_rows"] == expected_dmg_count, f"Source reconciliation failed! Expected {expected_dmg_count}, found {stats['total_rows']}"
-print(f"Reconciliation SUCCESS: Exact match with source damage_events count ({expected_dmg_count} rows).")
+
+batch_mids = list(unique_matches.keys())
+if batch_mids:
+    mids_clause = ", ".join(f"'{m}'" for m in batch_mids)
+    batch_actual = spark.sql(f"""
+        SELECT COUNT(*) AS cnt 
+        FROM {TARGET_TABLE} 
+        WHERE match_id IN ({mids_clause})
+    """).collect()[0]["cnt"]
+    assert batch_actual == expected_dmg_count, (
+        f"Source reconciliation failed! Expected {expected_dmg_count} damage events for batch, found {batch_actual} in Bronze"
+    )
+    print(f"Reconciliation SUCCESS: Exact match with source damage_events count ({expected_dmg_count} rows in batch).")
 
 # Damage reconciliation: SUM(damage_event.damage) vs player_stats.damage
 spark.sql(f"""
