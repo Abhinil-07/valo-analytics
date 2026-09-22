@@ -20,22 +20,9 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(me
 logger = logging.getLogger("RenderDeployTrigger")
 
 # ==============================================================================
-# CONFIGURATION
+# CONFIGURATION (DIRECT HARDCODED DEPLOY HOOK)
 # ==============================================================================
-DEFAULT_DEPLOY_HOOK = "https://api.render.com/deploy/srv-danfbljtqb8s73bntar0?key=DsSDTt2ji5Q"
-
-# Optional Databricks Widget to override hook URL dynamically
-try:
-    import IPython
-    ipython = IPython.get_ipython()
-    if ipython and "dbutils" in ipython.user_ns:
-        dbutils = ipython.user_ns["dbutils"]
-        dbutils.widgets.text("render_deploy_hook", DEFAULT_DEPLOY_HOOK, "Render Deploy Hook URL")
-        DEPLOY_HOOK_URL = dbutils.widgets.get("render_deploy_hook").strip() or DEFAULT_DEPLOY_HOOK
-    else:
-        DEPLOY_HOOK_URL = DEFAULT_DEPLOY_HOOK
-except Exception:
-    DEPLOY_HOOK_URL = DEFAULT_DEPLOY_HOOK
+DEPLOY_HOOK_URL = "https://api.render.com/deploy/srv-danfbljtqb8s73bntar0?key=DsSDTt2ji5Q"
 
 # Mask secret key for secure operational logging
 masked_hook = DEPLOY_HOOK_URL.split("?key=")[0] + "?key=***" if "?key=" in DEPLOY_HOOK_URL else DEPLOY_HOOK_URL
