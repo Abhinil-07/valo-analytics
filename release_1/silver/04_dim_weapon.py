@@ -70,6 +70,7 @@ weapon_seed_data = [
     ("Spectre", "SMGs", 1600, "https://media.valorant-api.com/weapons/462080d1-4035-2937-7c09-27aa2a5c27a7/displayicon.png"),
     ("Stinger", "SMGs", 1100, "https://media.valorant-api.com/weapons/f7e1b454-4ad4-1063-ec0a-159e56b58941/displayicon.png"),
     ("Vandal", "Rifles", 2900, "https://media.valorant-api.com/weapons/9c82e19d-4575-0200-1a81-3eacf00cf872/displayicon.png"),
+    ("Warden", "Rifles", 2900, "https://media.valorant-api.com/weapons/8db0a1bf-4a50-832a-4566-faaaa6d250ca/displayicon.png"),
 ]
 
 schema = StructType([
