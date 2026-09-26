@@ -64,13 +64,13 @@ ORDER BY matches_played DESC, win_rate_ratio DESC
 SELECT 
     m.map_name,
     p.agent_name,
-    d.agent_role,
+    p.agent_role,
     COUNT(DISTINCT m.match_id) AS agent_matches,
     COUNT(DISTINCT CASE WHEN m.is_our_team_win = true THEN m.match_id END) AS agent_wins,
     COUNT(DISTINCT CASE WHEN m.is_our_team_win = false THEN m.match_id END) AS agent_losses,
     ROUND(COUNT(DISTINCT CASE WHEN m.is_our_team_win = true THEN m.match_id END) * 1.0 / COUNT(DISTINCT m.match_id), 3) AS agent_win_ratio,
     ROUND(SUM(p.kills) * 1.0 / NULLIF(SUM(p.deaths), 0), 2) AS agent_kd,
-    ROUND(AVG(p.combat_score), 1) AS agent_avg_acs,
+    ROUND(AVG(p.average_combat_score), 1) AS agent_avg_acs,
     CASE 
         WHEN COUNT(DISTINCT CASE WHEN m.is_our_team_win = true THEN m.match_id END) * 1.0 / COUNT(DISTINCT m.match_id) >= 0.65 THEN '⭐ Must-Pick'
         WHEN COUNT(DISTINCT CASE WHEN m.is_our_team_win = true THEN m.match_id END) * 1.0 / COUNT(DISTINCT m.match_id) >= 0.50 THEN 'Solid Pick'
@@ -78,8 +78,7 @@ SELECT
     END AS pick_recommendation
 FROM valorant.gold.gold_match_summary m
 JOIN valorant.gold.gold_player_match_performance p ON m.match_id = p.match_id
-LEFT JOIN valorant.silver.dim_agent d ON p.agent_name = d.agent_name
-GROUP BY m.map_name, p.agent_name, d.agent_role
+GROUP BY m.map_name, p.agent_name, p.agent_role
 ORDER BY agent_win_ratio DESC, agent_matches DESC
 ```
 

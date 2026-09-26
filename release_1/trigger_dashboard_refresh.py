@@ -22,11 +22,10 @@ logger = logging.getLogger("RenderDeployWatcher")
 
 # ==============================================================================
 # CONFIGURATION
-# ==============================================================================
-DEPLOY_HOOK_URL     = "https://api.render.com/deploy/srv-danfbljtqb8s73bntar0?key=DsSDTt2ji5Q"
-RENDER_API_KEY      = "rnd_PG5y45Gvh5ksvRtbUDuQFsJZkQXm"
-RENDER_SERVICE_ID   = "srv-danfbljtqb8s73bntar0"
-DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1552391228753191012/aHg1wdL7i9AiKc4GSKJPIWB30dgRD2t0yXCA6PfLU3Qvw2_bFyWqeEFA6byX5361n3mq"
+DEPLOY_HOOK_URL     = os.environ.get("RENDER_DEPLOY_HOOK", "https://api.render.com/deploy/srv-danfbljtqb8s73bntar0?key=DsSDTt2ji5Q")
+RENDER_API_KEY      = os.environ.get("RENDER_API_KEY", "rnd_PG5y45Gvh5ksvRtbUDuQFsJZkQXm")
+RENDER_SERVICE_ID   = os.environ.get("RENDER_SERVICE_ID", "srv-danfbljtqb8s73bntar0")
+DISCORD_WEBHOOK_URL = os.environ.get("DISCORD_WEBHOOK_URL", "")
 DASHBOARD_URL       = "https://valo-analytics.onrender.com"
 
 # Operational Constants
@@ -243,14 +242,17 @@ else:
         ]
     }
 
-try:
-    wh_res = requests.post(DISCORD_WEBHOOK_URL, json=discord_payload, timeout=10)
-    if wh_res.status_code in (200, 204):
-        print("✅ Discord status notification delivered successfully!")
-    else:
-        print(f"⚠️ Discord webhook returned status {wh_res.status_code}: {wh_res.text}")
-except Exception as wh_err:
-    print(f"⚠️ Error sending Discord webhook: {wh_err}")
+if DISCORD_WEBHOOK_URL:
+    try:
+        wh_res = requests.post(DISCORD_WEBHOOK_URL, json=discord_payload, timeout=10)
+        if wh_res.status_code in (200, 204):
+            print("✅ Discord status notification delivered successfully!")
+        else:
+            print(f"⚠️ Discord webhook returned status {wh_res.status_code}: {wh_res.text}")
+    except Exception as wh_err:
+        print(f"⚠️ Error sending Discord webhook: {wh_err}")
+else:
+    print("ℹ️ DISCORD_WEBHOOK_URL not configured. Skipping Discord notification.")
 
 # COMMAND ----------
 # MAGIC %md
