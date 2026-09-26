@@ -1,11 +1,11 @@
 ---
 title: Map Strategy & Tier Rankings
-description: Interactive Tracker-style map tactical deep dive with high-resolution Riot splash artwork, side bias, winning agent compositions, and pick/ban tiers.
+description: Interactive Tracker-style map tactical deep dive with high-resolution Riot splash artwork, side bias, attack vs defense round splits, winning agent compositions, and pick/ban tiers.
 ---
 
 # 🗺️ Tactical Map Command Center
 
-Select any map from the rotation below to view high-resolution Riot artwork, team win rates, side bias, round conversion splits, and winning agent lineups.
+Select any map from the rotation below to view high-resolution Riot artwork, team win rates, attack vs. defense round conversion, side bias, and winning agent lineups.
 
 ```sql all_map_data
 SELECT 
@@ -20,16 +20,57 @@ SELECT
     map_win_pct / 100.0 AS map_win_ratio,
     round_differential,
     team_kd_ratio,
+    attack_rounds_won,
+    attack_rounds_played,
+    defense_rounds_won,
+    defense_rounds_played,
     attack_win_pct / 100.0 AS atk_win_ratio,
     defense_win_pct / 100.0 AS def_win_ratio,
     attack_start_matches,
     attack_start_win_pct / 100.0 AS atk_start_win_ratio,
     defense_start_matches,
     defense_start_win_pct / 100.0 AS def_start_win_ratio,
+    CASE 
+        WHEN (attack_win_pct - defense_win_pct) >= 5.0 THEN '⚔️ Attack Dominant Map'
+        WHEN (defense_win_pct - attack_win_pct) >= 5.0 THEN '🛡️ Defense Fortress Map'
+        ELSE '⚖️ Balanced Battlefield'
+    END AS tactical_side_category,
+    CONCAT(attack_rounds_won, ' / ', attack_rounds_played, ' (', CAST(attack_win_pct AS STRING), '%)') AS attack_rounds_summary,
+    CONCAT(defense_rounds_won, ' / ', defense_rounds_played, ' (', CAST(defense_win_pct AS STRING), '%)') AS defense_rounds_summary,
     side_bias,
     thrifty_rounds_won
 FROM valorant.gold.gold_map_performance
 ORDER BY matches_played DESC
+```
+
+```sql map_side_breakdown
+SELECT 
+    map_name,
+    '⚔️ Attack' AS tactical_side,
+    attack_rounds_won AS rounds_won,
+    (attack_rounds_played - attack_rounds_won) AS rounds_lost,
+    attack_rounds_played AS rounds_played,
+    attack_win_pct / 100.0 AS side_win_ratio,
+    CASE 
+        WHEN (attack_win_pct - defense_win_pct) >= 5.0 THEN '🔥 Squad Stronghold'
+        WHEN (defense_win_pct - attack_win_pct) >= 5.0 THEN '⚠️ Tactical Struggle'
+        ELSE '⚖️ Stable Execution'
+    END AS side_verdict
+FROM valorant.gold.gold_map_performance
+UNION ALL
+SELECT 
+    map_name,
+    '🛡️ Defense' AS tactical_side,
+    defense_rounds_won AS rounds_won,
+    (defense_rounds_played - defense_rounds_won) AS rounds_lost,
+    defense_rounds_played AS rounds_played,
+    defense_win_pct / 100.0 AS side_win_ratio,
+    CASE 
+        WHEN (defense_win_pct - attack_win_pct) >= 5.0 THEN '🔥 Squad Stronghold'
+        WHEN (attack_win_pct - defense_win_pct) >= 5.0 THEN '⚠️ Tactical Struggle'
+        ELSE '⚖️ Stable Execution'
+    END AS side_verdict
+FROM valorant.gold.gold_map_performance
 ```
 
 ```sql map_agent_comps
@@ -154,11 +195,12 @@ ORDER BY g.matches_played DESC
   {% table data="all_map_data" filters=["map_filter"] %}
     {% dimension value="map_name" title="Map" /%}
     {% dimension value="map_tier" title="Competitive Tier" /%}
+    {% dimension value="tactical_side_category" title="Terrain Verdict" /%}
     {% dimension value="side_bias" title="Tactical Bias" /%}
     {% measure value="sum(matches_won)" title="Wins" fmt="num0" /%}
     {% measure value="sum(matches_lost)" title="Losses" fmt="num0" /%}
-    {% measure value="avg(atk_start_win_ratio)" title="Atk Start Win %" fmt="pct1" /%}
-    {% measure value="avg(def_start_win_ratio)" title="Def Start Win %" fmt="pct1" /%}
+    {% measure value="avg(atk_win_ratio)" title="Overall Atk Win %" fmt="pct1" /%}
+    {% measure value="avg(def_win_ratio)" title="Overall Def Win %" fmt="pct1" /%}
     {% measure value="sum(thrifty_rounds_won)" title="Thrifty Rounds" fmt="num0" /%}
   {% /table %}
 {% /row %}
@@ -199,6 +241,75 @@ ORDER BY g.matches_played DESC
 
 ---
 
+### ⚖️ Attack vs. Defense Mastery & Terrain Classification
+
+Comprehensive evaluation of our squad's attacking vs. defending efficiency on this map, irrespective of coin-toss starting side:
+
+{% row %}
+  {% big_value
+    data="all_map_data"
+    value="tactical_side_category"
+    title="Map Tactical Classification"
+    filters=["map_filter"]
+  /%}
+
+  {% big_value
+    data="all_map_data"
+    value="attack_rounds_summary"
+    title="⚔️ Attack Rounds Won / Total (%)"
+    filters=["map_filter"]
+  /%}
+
+  {% big_value
+    data="all_map_data"
+    value="defense_rounds_summary"
+    title="🛡️ Defense Rounds Won / Total (%)"
+    filters=["map_filter"]
+  /%}
+
+  {% big_value
+    data="all_map_data"
+    value="side_bias"
+    title="Squad Advantage Bias"
+    filters=["map_filter"]
+  /%}
+{% /row %}
+
+#### 📊 Detailed Side-by-Side Round Conversion Table
+
+{% table data="map_side_breakdown" filters=["map_filter"] %}
+  {% dimension value="tactical_side" title="Tactical Side" /%}
+  {% dimension value="side_verdict" title="Performance Verdict" /%}
+  {% measure value="sum(rounds_won)" title="Rounds Won" fmt="num0" /%}
+  {% measure value="sum(rounds_lost)" title="Rounds Lost" fmt="num0" /%}
+  {% measure value="sum(rounds_played)" title="Total Rounds" fmt="num0" /%}
+  {% measure value="avg(side_win_ratio)" title="Side Win %" fmt="pct1" /%}
+{% /table %}
+
+{% row %}
+  {% bar_chart
+    data="all_map_data"
+    x="map_name"
+    y="atk_win_ratio"
+    y2="def_win_ratio"
+    title="Overall Round Conversion: Attack vs. Defense"
+    y_fmt="pct1"
+    filters=["map_filter"]
+  /%}
+
+  {% bar_chart
+    data="all_map_data"
+    x="map_name"
+    y="atk_start_win_ratio"
+    y2="def_start_win_ratio"
+    title="Coin-Toss Starting Advantage (Match Win %)"
+    y_fmt="pct1"
+    filters=["map_filter"]
+  /%}
+{% /row %}
+
+---
+
 ### 🛡️ Optimal 5-Agent Lineups on Selected Map
 
 Historical performance of our squad's 5-agent team combinations on this map:
@@ -231,32 +342,6 @@ Individual agent performance, tactical roles, and win rates on this map:
 
 ---
 
-### ⚖️ Side Advantage & Tactical Conversion Breakdown
-
-{% row %}
-  {% bar_chart
-    data="all_map_data"
-    x="map_name"
-    y="atk_start_win_ratio"
-    y2="def_start_win_ratio"
-    title="Starting Coin-Toss Advantage (Win %)"
-    y_fmt="pct1"
-    filters=["map_filter"]
-  /%}
-
-  {% bar_chart
-    data="all_map_data"
-    x="map_name"
-    y="atk_win_ratio"
-    y2="def_win_ratio"
-    title="Round Conversion: Attack vs. Defense"
-    y_fmt="pct1"
-    filters=["map_filter"]
-  /%}
-{% /row %}
-
----
-
 ## 🏆 Squad Map-by-Map Winning Blueprint (All Maps)
 
 Quick-reference tactical guide showing the optimal 5-agent combination for every map in rotation:
@@ -280,6 +365,9 @@ Compare all maps in the competitive pool across the squad's history:
 {% table data="all_map_data" repeat_values=true %}
   {% dimension value="map_name" title="Map" /%}
   {% dimension value="map_tier" title="Competitive Tier" /%}
+  {% dimension value="tactical_side_category" title="Tactical Classification" /%}
+  {% dimension value="attack_rounds_summary" title="⚔️ Atk Rounds (Win %)" /%}
+  {% dimension value="defense_rounds_summary" title="🛡️ Def Rounds (Win %)" /%}
   {% measure value="sum(matches_played)" title="Played" fmt="num0" /%}
   {% measure value="sum(matches_won)" title="Wins" fmt="num0" /%}
   {% measure value="sum(matches_lost)" title="Losses" fmt="num0" /%}
