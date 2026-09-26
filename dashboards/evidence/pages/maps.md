@@ -73,6 +73,31 @@ SELECT
 FROM valorant.gold.gold_map_performance
 ```
 
+```sql all_maps_attack_defense_matrix
+SELECT 
+    map_name,
+    map_tier,
+    CASE 
+        WHEN (attack_win_pct - defense_win_pct) >= 5.0 THEN '⚔️ Attack Dominant'
+        WHEN (defense_win_pct - attack_win_pct) >= 5.0 THEN '🛡️ Defense Fortress'
+        ELSE '⚖️ Balanced Battlefield'
+    END AS terrain_classification,
+    CONCAT(attack_rounds_won, ' / ', attack_rounds_played, ' (', CAST(attack_win_pct AS STRING), '%)') AS attack_rounds_display,
+    attack_win_pct / 100.0 AS atk_win_ratio,
+    CONCAT(defense_rounds_won, ' / ', defense_rounds_played, ' (', CAST(defense_win_pct AS STRING), '%)') AS defense_rounds_display,
+    defense_win_pct / 100.0 AS def_win_ratio,
+    ROUND(attack_win_pct - defense_win_pct, 1) AS net_attack_lead_pct,
+    CASE
+        WHEN (attack_win_pct - defense_win_pct) >= 10.0 THEN '🔥 Heavy Attack Dominance'
+        WHEN (attack_win_pct - defense_win_pct) >= 5.0 THEN '⚔️ Attack Favored'
+        WHEN (defense_win_pct - attack_win_pct) >= 10.0 THEN '🏰 Impenetrable Defense'
+        WHEN (defense_win_pct - attack_win_pct) >= 5.0 THEN '🛡️ Defense Favored'
+        ELSE '⚖️ True Neutral / Even'
+    END AS tactical_verdict
+FROM valorant.gold.gold_map_performance
+ORDER BY (attack_win_pct - defense_win_pct) DESC
+```
+
 ```sql map_agent_comps
 WITH match_comps AS (
     SELECT 
@@ -307,6 +332,22 @@ Comprehensive evaluation of our squad's attacking vs. defending efficiency on th
     filters=["map_filter"]
   /%}
 {% /row %}
+
+---
+
+## ⚔️ All Maps: Attack vs. Defense Master Matrix
+
+At-a-glance comparison across all maps in the competitive pool to instantly see which battlefields are **Attack Dominant**, **Defense Fortresses**, or **Balanced**, along with exact rounds won, played, and side conversion percentages:
+
+{% table data="all_maps_attack_defense_matrix" repeat_values=true %}
+  {% dimension value="map_name" title="Map" /%}
+  {% dimension value="map_tier" title="Competitive Tier" /%}
+  {% dimension value="terrain_classification" title="Terrain Classification" /%}
+  {% dimension value="attack_rounds_display" title="⚔️ Attack Rounds (Win %)" /%}
+  {% dimension value="defense_rounds_display" title="🛡️ Defense Rounds (Win %)" /%}
+  {% measure value="avg(net_attack_lead_pct)" title="Net Atk Spread (+/- %)" fmt="num1" /%}
+  {% dimension value="tactical_verdict" title="Tactical Verdict" /%}
+{% /table %}
 
 ---
 
