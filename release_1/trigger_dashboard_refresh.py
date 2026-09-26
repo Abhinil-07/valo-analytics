@@ -37,7 +37,7 @@ TRIGGER_TIMEOUT       = 30
 masked_hook = DEPLOY_HOOK_URL.split("?key=")[0] + "?key=***" if "?key=" in DEPLOY_HOOK_URL else DEPLOY_HOOK_URL
 
 print("=" * 70)
-print("EVIDENCE DASHBOARD DEPLOY LIFECYCLE WATCHER (RENDER ➔ DISCORD)")
+print("EVIDENCE DASHBOARD DEPLOY LIFECYCLE WATCHER (RENDER -> DISCORD)")
 print("=" * 70)
 print(f"Trigger Timestamp: {datetime.now(timezone.utc).isoformat()}")
 print(f"Service ID:        {RENDER_SERVICE_ID}")
