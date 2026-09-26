@@ -10,6 +10,7 @@
 # MAGIC 4. **Notification:** Sends Discord status card ONLY AFTER the dashboard is verified 100% LIVE in production!
 
 # COMMAND ----------
+import os
 import time
 import json
 import logging
