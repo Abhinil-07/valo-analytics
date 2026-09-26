@@ -32,10 +32,11 @@ SCHEMA = "gold"
 SOURCE_GOLD_PLAYER_MATCH = f"{CATALOG}.gold.gold_player_match_performance"
 SOURCE_FACT_ROUND_PLAYER = f"{CATALOG}.silver.fact_round_player"
 SOURCE_DIM_AGENT         = f"{CATALOG}.silver.dim_agent"
+SOURCE_DIM_PLAYER        = f"{CATALOG}.silver.dim_player"
 TARGET_TABLE             = f"{CATALOG}.{SCHEMA}.gold_agent_performance"
 
 print(f"Target Table: {TARGET_TABLE}")
-print(f"Reading from: {SOURCE_GOLD_PLAYER_MATCH}, {SOURCE_FACT_ROUND_PLAYER}, {SOURCE_DIM_AGENT}")
+print(f"Reading from: {SOURCE_GOLD_PLAYER_MATCH}, {SOURCE_FACT_ROUND_PLAYER}, {SOURCE_DIM_AGENT}, {SOURCE_DIM_PLAYER}")
 
 # COMMAND ----------
 # MAGIC %md
@@ -151,12 +152,23 @@ agent_agg_df = player_match_df.groupBy(
 # MAGIC ### Step 4: Compute Rates, Pick %, and Mastery Tiers
 
 # COMMAND ----------
+# Canonical Player Identity from dim_player
+try:
+    dim_player_df = spark.table(SOURCE_DIM_PLAYER).select(
+        F.col("player_puuid"),
+        F.col("current_display_name").alias("canonical_display_name")
+    )
+except Exception:
+    dim_player_df = spark.createDataFrame([], "player_puuid STRING, canonical_display_name STRING")
+
 final_gold_agent_df = agent_agg_df.join(
     player_match_totals_df, on="player_puuid", how="left"
+).join(
+    dim_player_df, on="player_puuid", how="left"
 ).select(
     F.col("player_puuid"),
     F.col("player_name"),
-    F.col("current_display_name"),
+    F.coalesce(F.col("canonical_display_name"), F.col("current_display_name")).alias("current_display_name"),
     F.col("roster_role"),
     F.coalesce(F.col("is_core_team"), F.lit(False)).alias("is_core_team"),
     F.col("agent_name"),

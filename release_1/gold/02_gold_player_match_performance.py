@@ -33,10 +33,11 @@ SOURCE_FACT_PLAYER = f"{CATALOG}.silver.fact_match_player"
 SOURCE_DIM_MATCH   = f"{CATALOG}.silver.dim_match"
 SOURCE_DIM_AGENT   = f"{CATALOG}.silver.dim_agent"
 SOURCE_DIM_ROSTER  = f"{CATALOG}.silver.dim_team_roster"
+SOURCE_DIM_PLAYER  = f"{CATALOG}.silver.dim_player"
 TARGET_TABLE       = f"{CATALOG}.{SCHEMA}.gold_player_match_performance"
 
 print(f"Target Table: {TARGET_TABLE}")
-print(f"Reading from: {SOURCE_FACT_PLAYER}, {SOURCE_DIM_MATCH}, {SOURCE_DIM_AGENT}")
+print(f"Reading from: {SOURCE_FACT_PLAYER}, {SOURCE_DIM_MATCH}, {SOURCE_DIM_AGENT}, {SOURCE_DIM_PLAYER}")
 
 # COMMAND ----------
 # MAGIC %md
@@ -106,6 +107,15 @@ try:
     )
 except Exception:
     roster_df = spark.createDataFrame([], "player_puuid STRING, roster_role STRING")
+
+# 1b. Canonical Display Names from dim_player
+try:
+    dim_player_df = spark.table(SOURCE_DIM_PLAYER).select(
+        F.col("player_puuid"),
+        F.col("current_display_name").alias("canonical_display_name")
+    )
+except Exception:
+    dim_player_df = spark.createDataFrame([], "player_puuid STRING, canonical_display_name STRING")
 
 # 2. Agent Metadata from dim_agent
 agent_df = spark.table(SOURCE_DIM_AGENT).select(
@@ -182,6 +192,8 @@ staged_gold_player_df = ranked_squad_df.join(
 ).join(
     roster_df, on="player_puuid", how="left"
 ).join(
+    dim_player_df, on="player_puuid", how="left"
+).join(
     opponent_comp_df, on="match_id", how="left"
 ).withColumn(
     "performance_rating",
@@ -193,7 +205,7 @@ staged_gold_player_df = ranked_squad_df.join(
     "player_puuid",
     "player_name",
     "player_tag",
-    "current_display_name",
+    F.coalesce(F.col("canonical_display_name"), F.col("current_display_name")).alias("current_display_name"),
     F.coalesce(F.col("roster_role"), F.lit("Squad Member")).alias("roster_role"),
     "is_core_team",
     "match_date",

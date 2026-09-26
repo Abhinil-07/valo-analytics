@@ -43,10 +43,11 @@ SCHEMA = "silver"
 SOURCE_BRONZE_PLAYER = f"{CATALOG}.bronze.bronze_player"
 SOURCE_DIM_MATCH = f"{CATALOG}.silver.dim_match"
 SOURCE_DIM_ROSTER = f"{CATALOG}.silver.dim_team_roster"
+SOURCE_DIM_PLAYER = f"{CATALOG}.silver.dim_player"
 TARGET_TABLE = f"{CATALOG}.{SCHEMA}.fact_match_player"
 
 print(f"Target Table: {TARGET_TABLE}")
-print(f"Reading from: {SOURCE_BRONZE_PLAYER}, {SOURCE_DIM_MATCH}")
+print(f"Reading from: {SOURCE_BRONZE_PLAYER}, {SOURCE_DIM_MATCH}, {SOURCE_DIM_PLAYER}")
 
 # COMMAND ----------
 # MAGIC %md
@@ -151,14 +152,39 @@ player_df = spark.table(SOURCE_BRONZE_PLAYER).select(
     F.col("loadout_value_average")
 ).filter(F.col("player_puuid").isNotNull())
 
+# Canonical Player Identity Mapping from dim_player
+try:
+    dim_player_df = spark.table(SOURCE_DIM_PLAYER).select(
+        F.col("player_puuid"),
+        F.col("current_display_name").alias("canonical_display_name")
+    )
+except Exception as e:
+    print(f"Warning: Could not read {SOURCE_DIM_PLAYER} directly ({e}). Using raw match name fallback.")
+    dim_player_df = None
+
 # 4. Join Player Performance with Match Context and Derive Metrics
-staged_fact_player_df = player_df.join(
+base_joined_df = player_df.join(
     match_df,
     on="match_id",
     how="inner"
-).withColumn(
-    "current_display_name", F.concat_ws("#", F.col("player_name"), F.col("player_tag"))
-).withColumn(
+)
+
+if dim_player_df is not None:
+    base_joined_df = base_joined_df.join(
+        dim_player_df,
+        on="player_puuid",
+        how="left"
+    )
+    staged_fact_player_df = base_joined_df.withColumn(
+        "current_display_name",
+        F.coalesce(F.col("canonical_display_name"), F.concat_ws("#", F.col("player_name"), F.col("player_tag")))
+    ).drop("canonical_display_name")
+else:
+    staged_fact_player_df = base_joined_df.withColumn(
+        "current_display_name", F.concat_ws("#", F.col("player_name"), F.col("player_tag"))
+    )
+
+staged_fact_player_df = staged_fact_player_df.withColumn(
     "is_core_team", F.col("player_puuid").isin(core_puuids)
 ).withColumn(
     # Perspective Mapping
