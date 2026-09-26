@@ -1,11 +1,11 @@
 ---
 title: Map Strategy & Tier Rankings
-description: Interactive Tracker-style map tactical deep dive with high-resolution Riot splash artwork, side bias, and pick/ban tiers.
+description: Interactive Tracker-style map tactical deep dive with high-resolution Riot splash artwork, side bias, winning agent compositions, and pick/ban tiers.
 ---
 
 # 🗺️ Tactical Map Command Center
 
-Select any map from the rotation below to view high-resolution Riot artwork, team win rates, side bias, and round conversion splits.
+Select any map from the rotation below to view high-resolution Riot artwork, team win rates, side bias, round conversion splits, and winning agent lineups.
 
 ```sql all_map_data
 SELECT 
@@ -30,6 +30,99 @@ SELECT
     thrifty_rounds_won
 FROM valorant.gold.gold_map_performance
 ORDER BY matches_played DESC
+```
+
+```sql map_agent_comps
+WITH match_comps AS (
+    SELECT 
+        m.match_id,
+        m.map_name,
+        m.is_our_team_win,
+        array_join(array_sort(collect_set(p.agent_name)), ', ') AS comp_lineup
+    FROM valorant.gold.gold_match_summary m
+    JOIN valorant.gold.gold_player_match_performance p ON m.match_id = p.match_id
+    GROUP BY m.match_id, m.map_name, m.is_our_team_win
+)
+SELECT 
+    map_name,
+    comp_lineup,
+    COUNT(*) AS matches_played,
+    SUM(CASE WHEN is_our_team_win = true THEN 1 ELSE 0 END) AS wins,
+    SUM(CASE WHEN is_our_team_win = false THEN 1 ELSE 0 END) AS losses,
+    ROUND(SUM(CASE WHEN is_our_team_win = true THEN 1 ELSE 0 END) * 1.0 / COUNT(*), 3) AS win_rate_ratio,
+    CASE 
+        WHEN SUM(CASE WHEN is_our_team_win = true THEN 1 ELSE 0 END) * 1.0 / COUNT(*) >= 0.70 THEN '🔥 Dominant Meta'
+        WHEN SUM(CASE WHEN is_our_team_win = true THEN 1 ELSE 0 END) * 1.0 / COUNT(*) >= 0.50 THEN '✅ Viable Lineup'
+        ELSE '⚠️ High-Risk Comp'
+    END AS comp_viability
+FROM match_comps
+GROUP BY map_name, comp_lineup
+ORDER BY matches_played DESC, win_rate_ratio DESC
+```
+
+```sql map_agent_winrates
+SELECT 
+    m.map_name,
+    p.agent_name,
+    d.agent_role,
+    COUNT(DISTINCT m.match_id) AS agent_matches,
+    COUNT(DISTINCT CASE WHEN m.is_our_team_win = true THEN m.match_id END) AS agent_wins,
+    COUNT(DISTINCT CASE WHEN m.is_our_team_win = false THEN m.match_id END) AS agent_losses,
+    ROUND(COUNT(DISTINCT CASE WHEN m.is_our_team_win = true THEN m.match_id END) * 1.0 / COUNT(DISTINCT m.match_id), 3) AS agent_win_ratio,
+    ROUND(SUM(p.kills) * 1.0 / NULLIF(SUM(p.deaths), 0), 2) AS agent_kd,
+    ROUND(AVG(p.combat_score), 1) AS agent_avg_acs,
+    CASE 
+        WHEN COUNT(DISTINCT CASE WHEN m.is_our_team_win = true THEN m.match_id END) * 1.0 / COUNT(DISTINCT m.match_id) >= 0.65 THEN '⭐ Must-Pick'
+        WHEN COUNT(DISTINCT CASE WHEN m.is_our_team_win = true THEN m.match_id END) * 1.0 / COUNT(DISTINCT m.match_id) >= 0.50 THEN 'Solid Pick'
+        ELSE '❌ Avoid / Low Win Rate'
+    END AS pick_recommendation
+FROM valorant.gold.gold_match_summary m
+JOIN valorant.gold.gold_player_match_performance p ON m.match_id = p.match_id
+LEFT JOIN valorant.silver.dim_agent d ON p.agent_name = d.agent_name
+GROUP BY m.map_name, p.agent_name, d.agent_role
+ORDER BY agent_win_ratio DESC, agent_matches DESC
+```
+
+```sql global_map_blueprint
+WITH match_comps AS (
+    SELECT 
+        m.match_id,
+        m.map_name,
+        m.is_our_team_win,
+        array_join(array_sort(collect_set(p.agent_name)), ', ') AS comp_lineup
+    FROM valorant.gold.gold_match_summary m
+    JOIN valorant.gold.gold_player_match_performance p ON m.match_id = p.match_id
+    GROUP BY m.match_id, m.map_name, m.is_our_team_win
+),
+comp_stats AS (
+    SELECT 
+        map_name,
+        comp_lineup,
+        COUNT(*) AS comp_matches,
+        SUM(CASE WHEN is_our_team_win = true THEN 1 ELSE 0 END) AS comp_wins,
+        ROUND(SUM(CASE WHEN is_our_team_win = true THEN 1 ELSE 0 END) * 1.0 / COUNT(*), 3) AS comp_win_ratio,
+        ROW_NUMBER() OVER (
+            PARTITION BY map_name 
+            ORDER BY 
+                SUM(CASE WHEN is_our_team_win = true THEN 1 ELSE 0 END) * 1.0 / COUNT(*) DESC, 
+                COUNT(*) DESC
+        ) AS rn
+    FROM match_comps
+    GROUP BY map_name, comp_lineup
+    HAVING COUNT(*) >= 2
+)
+SELECT 
+    g.map_name,
+    g.map_tier,
+    g.matches_played AS total_map_matches,
+    g.map_win_pct / 100.0 AS map_win_ratio,
+    COALESCE(c.comp_lineup, 'Custom / Varied Lineups') AS optimal_5man_comp,
+    COALESCE(c.comp_matches, 0) AS comp_matches_played,
+    COALESCE(c.comp_win_ratio, g.map_win_pct / 100.0) AS comp_win_ratio,
+    g.side_bias
+FROM valorant.gold.gold_map_performance g
+LEFT JOIN comp_stats c ON g.map_name = c.map_name AND c.rn = 1
+ORDER BY g.matches_played DESC
 ```
 
 ---
@@ -107,6 +200,38 @@ ORDER BY matches_played DESC
 
 ---
 
+### 🛡️ Optimal 5-Agent Lineups on Selected Map
+
+Historical performance of our squad's 5-agent team combinations on this map:
+
+{% table data="map_agent_comps" filters=["map_filter"] %}
+  {% dimension value="comp_lineup" title="5-Agent Lineup" /%}
+  {% dimension value="comp_viability" title="Viability" /%}
+  {% measure value="sum(matches_played)" title="Played" fmt="num0" /%}
+  {% measure value="sum(wins)" title="Wins" fmt="num0" /%}
+  {% measure value="sum(losses)" title="Losses" fmt="num0" /%}
+  {% measure value="avg(win_rate_ratio)" title="Comp Win %" fmt="pct1" /%}
+{% /table %}
+
+---
+
+### ⭐ Agent Tactical Effectiveness & Recommendations
+
+Individual agent performance, tactical roles, and win rates on this map:
+
+{% table data="map_agent_winrates" filters=["map_filter"] %}
+  {% dimension value="agent_name" title="Agent" /%}
+  {% dimension value="agent_role" title="Role" /%}
+  {% dimension value="pick_recommendation" title="Tactical Recommendation" /%}
+  {% measure value="sum(agent_matches)" title="Matches" fmt="num0" /%}
+  {% measure value="sum(agent_wins)" title="Wins" fmt="num0" /%}
+  {% measure value="avg(agent_win_ratio)" title="Agent Win %" fmt="pct1" /%}
+  {% measure value="avg(agent_kd)" title="Squad K/D" fmt="num2" /%}
+  {% measure value="avg(agent_avg_acs)" title="Avg ACS" fmt="num1" /%}
+{% /table %}
+
+---
+
 ### ⚖️ Side Advantage & Tactical Conversion Breakdown
 
 {% row %}
@@ -130,6 +255,22 @@ ORDER BY matches_played DESC
     filters=["map_filter"]
   /%}
 {% /row %}
+
+---
+
+## 🏆 Squad Map-by-Map Winning Blueprint (All Maps)
+
+Quick-reference tactical guide showing the optimal 5-agent combination for every map in rotation:
+
+{% table data="global_map_blueprint" repeat_values=true %}
+  {% dimension value="map_name" title="Map" /%}
+  {% dimension value="map_tier" title="Map Tier" /%}
+  {% dimension value="side_bias" title="Side Bias" /%}
+  {% dimension value="optimal_5man_comp" title="🥇 Optimal 5-Agent Lineup" /%}
+  {% measure value="sum(comp_matches_played)" title="Lineup Games" fmt="num0" /%}
+  {% measure value="avg(comp_win_ratio)" title="Lineup Win %" fmt="pct1" /%}
+  {% measure value="avg(map_win_ratio)" title="Overall Map Win %" fmt="pct1" /%}
+{% /table %}
 
 ---
 
