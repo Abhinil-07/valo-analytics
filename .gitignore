@@ -48,4 +48,5 @@ connection.yaml
 .evidence/
 **/evidence.db
 *.png
+*.csv
 

@@ -169,6 +169,26 @@ LIMIT 10
 
 ---
 
+## 💬 Interactive AI Query Terminal (Ask Your Own Prompts)
+
+Type any custom natural language question below to analyze our Databricks Gold Delta tables. You can ask about player comparisons, map side biases, signature agent win rates, weapon lethality, or specific tactical questions.
+
+<iframe 
+  src="/ai-terminal.html" 
+  width="100%" 
+  height="720px" 
+  style="border: 1px solid #23303d; border-radius: 12px; margin-top: 0.5rem; margin-bottom: 1.5rem; background: #0b1118; box-shadow: 0 8px 24px rgba(0,0,0,0.4);"
+  title="Valorant AI BI Terminal">
+</iframe>
+
+<p style="text-align: right; margin-top: -1rem; margin-bottom: 2rem;">
+  <a href="/ai-terminal.html" target="_blank" style="color: #ff4655; font-weight: bold; text-decoration: none;">
+    ↗ Open AI Terminal in Dedicated Fullscreen Window
+  </a>
+</p>
+
+---
+
 ## 🎯 Interactive Player Diagnostic
 
 Select any squad member below to generate real-time AI tactical diagnostics, signature agent proficiencies, and combat scorecards:
