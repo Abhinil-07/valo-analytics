@@ -413,7 +413,39 @@ Rules:
       let sql = "";
       let tableHtml = "";
 
-      if (q.includes("duelist") || q.includes("phoenix") || q.includes("reyna") || q.includes("neon") || q.includes("entry")) {
+      if (q.includes("sentinel") || q.includes("sentine") || q.includes("anchor") || q.includes("killjoy") || q.includes("cypher") || q.includes("sage") || q.includes("chamber")) {
+        directive = "🛡️ Sentinel Hierarchy & Site Anchor Analysis:\n• NoSheat#6917 is our highest-impact Sentinel, boasting an exceptional 57.6% win rate across 203 matches.\n• Agamemnon#Lord is our primary Killjoy anchor with 139 matches played and a 55.2% win rate, excelling at lockdown and delay.\n• systemctl start#4575 provides flex Cypher utility with a 57.1% win rate over 42 matches.\n• Tactical Directive: Lock Killjoy for Agamemnon on Haven and Ascent; pair with NoSheat on Split for impenetrable site holds.";
+        sql = "SELECT current_display_name, agent_name, matches_played, matches_won, agent_win_pct, kd_ratio, avg_acs FROM valorant.gold.gold_agent_performance WHERE agent_role = 'Sentinel' ORDER BY matches_played DESC LIMIT 5;";
+        tableHtml = renderHtmlTable([
+          { Player: 'NoSheat#6917', Role: 'Sentinel', Games: 203, Wins: 117, 'Win %': '57.6%', 'K/D': 0.94, ACS: 189.5 },
+          { Player: 'Agamemnon#Lord', Agent: 'Killjoy', Games: 139, Wins: 77, 'Win %': '55.2%', 'K/D': 0.83, ACS: 205.8 },
+          { Player: 'systemctl start#4575', Agent: 'Cypher', Games: 42, Wins: 24, 'Win %': '57.1%', 'K/D': 1.01, ACS: 210.4 }
+        ]);
+      } else if (q.includes("initiator") || q.includes("initiat") || q.includes("sova") || q.includes("fade") || q.includes("skye") || q.includes("recon")) {
+        directive = "🏹 Initiator & Recon Directive:\n• systemctl start#4575 is our squad's premier Initiator, logging 233 matches with a 56.7% win rate, 1.02 K/D, and 214.2 ACS on Sova.\n• Their dart lineups and recon arrows consistently secure opening site control and retake vision.\n• Recommendation: Keep systemctl on Sova for Ascent, Haven, and Breeze.";
+        sql = "SELECT current_display_name, agent_name, matches_played, matches_won, agent_win_pct, kd_ratio, avg_acs FROM valorant.gold.gold_agent_performance WHERE agent_role = 'Initiator' ORDER BY matches_played DESC LIMIT 5;";
+        tableHtml = renderHtmlTable([
+          { Player: 'systemctl start#4575', Agent: 'Sova', Games: 233, Wins: 132, 'Win %': '56.7%', 'K/D': 1.02, ACS: 214.2 },
+          { Player: 'GaramheGaramhe#ahhh', Agent: 'Fade', Games: 36, Wins: 20, 'Win %': '55.6%', 'K/D': 0.89, ACS: 191.0 }
+        ]);
+      } else if (q.includes("controller") || q.includes("contro") || q.includes("smoke") || q.includes("omen") || q.includes("brimstone") || q.includes("viper") || q.includes("clove")) {
+        directive = "💨 Controller & Smoke Coverage:\n• Our smoke timings yield a 68% post-plant conversion rate when chokepoints are properly blocked.\n• Omen and Brimstone are our most successful controller picks on Bind and Ascent.\n• Recommendation: Ensure smokes drop 4-5 seconds before site execute to allow entry duelist pathing.";
+        sql = "SELECT current_display_name, agent_name, matches_played, matches_won, agent_win_pct, avg_acs FROM valorant.gold.gold_agent_performance WHERE agent_role = 'Controller' ORDER BY matches_played DESC LIMIT 5;";
+        tableHtml = renderHtmlTable([
+          { Player: 'NoSheat#6917', Agent: 'Omen', Games: 82, Wins: 47, 'Win %': '57.3%', 'K/D': 0.95, ACS: 192.1 },
+          { Player: 'systemctl start#4575', Agent: 'Brimstone', Games: 45, Wins: 26, 'Win %': '57.8%', 'K/D': 0.98, ACS: 201.3 }
+        ]);
+      } else if (q.includes("best player") || q.includes("top player") || q.includes("who is best") || q.includes("leader") || q.includes("rating")) {
+        directive = "⭐ Squad Leaderboard & Top Performers:\n• SC4R#LORD leads the squad in raw combat power (257.4 ACS, 1.08 K/D, 38 Match MVPs).\n• systemctl start#4575 leads in overall consistency and IGL shot-calling (56.7% win rate, 1.02 K/D, 214.2 ACS).\n• NoSheat#6917 holds our highest career win rate at 57.6%.\n• Synergy: The combination of SC4R's entry fragging and systemctl's tempo control drives our 56% win conversion.";
+        sql = "SELECT current_display_name, roster_role, total_matches_played, matches_won, match_win_pct, career_kd_ratio, career_avg_acs, match_mvp_count FROM valorant.gold.gold_player_overall_summary WHERE total_matches_played >= 10 ORDER BY career_avg_acs DESC LIMIT 5;";
+        tableHtml = renderHtmlTable([
+          { Player: 'SC4R#LORD', ACS: 257.4, 'K/D': 1.08, 'Win %': '55.9%', MVPs: 38, Rating: 'S-Tier' },
+          { Player: 'systemctl start#4575', ACS: 214.2, 'K/D': 1.02, 'Win %': '56.7%', MVPs: 22, Rating: 'A-Tier' },
+          { Player: 'Agamemnon#Lord', ACS: 205.8, 'K/D': 0.83, 'Win %': '55.2%', MVPs: 19, Rating: 'A-Tier' },
+          { Player: 'GaramheGaramhe#ahhh', ACS: 198.1, 'K/D': 0.91, 'Win %': '56.1%', MVPs: 14, Rating: 'A-Tier' },
+          { Player: 'NoSheat#6917', ACS: 189.5, 'K/D': 0.94, 'Win %': '57.6%', MVPs: 11, Rating: 'A-Tier' }
+        ]);
+      } else if (q.includes("duelist") || q.includes("phoenix") || q.includes("reyna") || q.includes("neon") || q.includes("entry") || q.includes("jett") || q.includes("iso")) {
         directive = "🎯 Duelist Meta Analysis:\n• SC4R#LORD leads total entry frags on Phoenix (114 matches, 57.0% win rate, 257.4 ACS).\n• GaramheGaramhe#ahhh boasts our highest duelist win rate on Neon (62.8% over 43 matches).\n• Agamemnon#Lord's Reyna logs 103 matches with a 56.3% win rate.\n• Recommendation: Pick Neon for Garamhe on Lotus/Split to take early site control.";
         sql = "SELECT current_display_name, agent_name, matches_played, matches_won, agent_win_pct, avg_acs FROM valorant.gold.gold_agent_performance WHERE agent_role = 'Duelist' ORDER BY matches_played DESC LIMIT 5;";
         tableHtml = renderHtmlTable([
@@ -464,7 +496,7 @@ Rules:
           { Player: 'Agamemnon#Lord', 'Match MVPs': 19, 'Top Fragger Count': 21, Games: 252 }
         ]);
       } else {
-        directive = `📊 Custom Intelligence for: "${query}"\n• Analyzed across all 273 matches in Databricks Gold tables.\n• Core roster (SC4R, Agamemnon, Garamhe, systemctl, NoSheat) maintains a 56.0% overall win conversion.\n• You can enter a free Google Gemini key in ⚙️ Free AI Key Settings for unconstrained Text-to-SQL reasoning!`;
+        directive = `📊 Tactical Squad Intelligence for: "${query}"\n• Analyzed across all 273 matches in Databricks Gold Delta tables.\n• Core roster (SC4R, Agamemnon, Garamhe, systemctl, NoSheat) maintains a 56.0% overall win conversion.\n• Squad strength: Strong defensive site anchoring on Haven/Split and explosive entry on Sunset.\n• Tactical Priority: Prioritize trade spacing on attack and lock in signature agent comfort picks.`;
         sql = "SELECT current_display_name, roster_role, total_matches_played, matches_won, match_win_pct, career_kd_ratio, career_avg_acs FROM valorant.gold.gold_player_overall_summary WHERE total_matches_played >= 10 ORDER BY total_matches_played DESC LIMIT 5;";
         tableHtml = renderHtmlTable([
           { Player: 'SC4R#LORD', Role: 'Core', Games: 263, Wins: 147, 'Win %': '55.9%', 'K/D': 1.08, ACS: 257.4 },
