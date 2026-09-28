@@ -5,7 +5,9 @@ description: Comprehensive match analytics, weekly momentum, map dominance, and 
 
 # 🎮 Valorant Squad Analytics — Team Overview
 
-Welcome to the executive command center for **OUR_TEAM** (Captain: **Agamemnon**). Real-time analytics ingested across all 211 competitive matches from Databricks Unity Catalog.
+Welcome to the executive command center for **OUR_TEAM** (Captain: **Agamemnon**). Real-time analytics ingested across all competitive matches from Databricks Unity Catalog.
+
+> 🤖 **New AI Feature:** Query your squad data in plain English! Try the [**AI Tactical Coach & Natural Language BI Terminal →**](/ai-assistant)
 
 ```sql kpi_summary
 SELECT 
