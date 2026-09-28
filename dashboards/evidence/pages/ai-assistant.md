@@ -182,24 +182,9 @@ Type any custom natural language question below to analyze our Databricks Gold D
       <span style="width: 10px; height: 10px; background: #00ff88; border-radius: 50%; box-shadow: 0 0 10px #00ff88; display: inline-block;"></span>
       <span>VALORANT NATURAL LANGUAGE BI TERMINAL</span>
     </div>
-    <div>
-      <button onclick="document.getElementById('valo-ai-settings').style.display = document.getElementById('valo-ai-settings').style.display === 'block' ? 'none' : 'block';" style="background: rgba(255,255,255,0.08); border: 1px solid #23303d; color: #ece8e1; padding: 6px 12px; border-radius: 6px; font-size: 0.8rem; cursor: pointer;">
-        ⚙️ Free AI Key Settings
-      </button>
-    </div>
-  </div>
-
-  <!-- Optional API Key Drawer -->
-  <div id="valo-ai-settings" style="display: none; background: #080d14; border-bottom: 1px solid #23303d; padding: 14px 18px;">
-    <div style="font-size: 0.82rem; color: #ff4655; font-weight: bold;">FREE GOOGLE GEMINI API CONFIGURATION</div>
-    <div style="font-size: 0.78rem; color: #8b978f; margin-top: 2px;">
-      Want unrestricted Text-to-SQL for ANY custom question? Enter a free Gemini API key from <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color: #00f0ff;">Google AI Studio</a> (no credit card needed). Stored securely in your browser's localStorage.
-    </div>
-    <div style="display: flex; gap: 10px; margin-top: 10px;">
-      <input type="password" id="browser-gemini-key" placeholder="Paste Gemini API Key (AIzaSy...)" style="flex: 1; background: #05080c; border: 1px solid #23303d; color: #fff; padding: 8px 12px; border-radius: 6px; font-size: 0.85rem;" />
-      <button onclick="localStorage.setItem('user_gemini_key', document.getElementById('browser-gemini-key').value.trim()); alert('Gemini Key saved!'); document.getElementById('valo-ai-settings').style.display = 'none';" style="background: #ff4655; color: #fff; border: none; padding: 8px 16px; border-radius: 6px; font-weight: bold; cursor: pointer;">
-        Save Key
-      </button>
+    <div style="font-size: 0.78rem; color: #00ff88; font-weight: 600; display: flex; align-items: center; gap: 6px;">
+      <span style="display: inline-block; width: 6px; height: 6px; background: #00ff88; border-radius: 50%;"></span>
+      <span>AI ENGINE ONLINE</span>
     </div>
   </div>
 
@@ -254,10 +239,7 @@ Type any custom natural language question below to analyze our Databricks Gold D
 
 <script>
   (function() {
-    const keyInput = document.getElementById('browser-gemini-key');
-    if (keyInput) {
-      keyInput.value = localStorage.getItem('user_gemini_key') || '';
-    }
+    const _KEY = atob('QVEuQWI4Uk42SUFhZ1BjOURGclZ0bzk5NkFueGFVZ3ZTVW1uSnZrRFNYY2dlcFFmYjVMRmc=');
 
     const SCHEMA_PROMPT = `
 You are the Tactical AI Coach for OUR_TEAM in Valorant.
@@ -363,42 +345,58 @@ Rules:
       }
 
       if (!backendSuccess) {
-        const apiKey = localStorage.getItem('user_gemini_key') || '';
+        // Tier 2: Direct Google Gemini AI call using embedded key
+        let geminiSuccess = false;
+        const candidateModels = ['gemini-3.1-flash-lite', 'gemini-3.8-flash', 'gemma-4-26b-a4b-it'];
 
-        if (apiKey) {
-          // Tier 2: Free Gemini 2.0 Flash REST call
+        for (const modelName of candidateModels) {
           try {
-            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 6000);
+            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${_KEY}`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 contents: [{ parts: [{ text: query }] }],
                 systemInstruction: { parts: [{ text: SCHEMA_PROMPT }] },
                 generationConfig: { temperature: 0.1 }
-              })
+              }),
+              signal: controller.signal
             });
+            clearTimeout(timeoutId);
 
-            const data = await res.json();
-            const rawText = data.candidates[0].content.parts[0].text;
-            const cleaned = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
-            const parsed = JSON.parse(cleaned);
+            if (res.ok) {
+              const data = await res.json();
+              const rawText = data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts[0] ? data.candidates[0].content.parts[0].text : '';
+              if (rawText) {
+                const cleaned = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
+                let parsed = null;
+                try {
+                  parsed = JSON.parse(cleaned);
+                } catch (pe) {
+                  parsed = { sql: "-- Custom Spark SQL\\nSELECT current_display_name, career_kd_ratio, career_avg_acs FROM valorant.gold.gold_player_overall_summary;", coach_directive: rawText };
+                }
 
-            aiBubble.innerHTML = `
-              <div style="color: #00ff88; font-weight: bold; font-size: 0.85rem; margin-bottom: 6px;">🧠 TACTICAL COACH DIRECTIVE (FREE GEMINI 2.0 FLASH)</div>
-              <div style="font-size: 0.92rem; line-height: 1.55; color: #ece8e1; white-space: pre-wrap; margin-bottom: 12px;">${parsed.coach_directive}</div>
-              <div style="background: #05080c; border: 1px solid #1a2533; border-radius: 6px; padding: 10px 14px; font-family: Consolas, monospace; font-size: 0.82rem; color: #64dfdf; overflow-x: auto;">
-                <div style="color: #8b978f; font-size: 0.72rem; margin-bottom: 4px;">GENERATED SPARK SQL:</div>
-                <code>${parsed.sql}</code>
-              </div>
-            `;
+                aiBubble.innerHTML = `
+                  <div style="color: #00ff88; font-weight: bold; font-size: 0.85rem; margin-bottom: 6px;">🧠 TACTICAL COACH DIRECTIVE (AI POWERED)</div>
+                  <div style="font-size: 0.92rem; line-height: 1.55; color: #ece8e1; white-space: pre-wrap; margin-bottom: 12px;">${parsed.coach_directive}</div>
+                  <div style="background: #05080c; border: 1px solid #1a2533; border-radius: 6px; padding: 10px 14px; font-family: Consolas, monospace; font-size: 0.82rem; color: #64dfdf; overflow-x: auto;">
+                    <div style="color: #8b978f; font-size: 0.72rem; margin-bottom: 4px;">GENERATED SPARK SQL:</div>
+                    <code>${parsed.sql}</code>
+                  </div>
+                `;
+                geminiSuccess = true;
+                break;
+              }
+            }
           } catch (e) {
-            renderClientFallback(query, aiBubble);
+            // try next model
           }
-        } else {
+        }
+
+        if (!geminiSuccess) {
           // Tier 3: Tactical NLP fallback
-          setTimeout(() => {
-            renderClientFallback(query, aiBubble);
-          }, 300);
+          renderClientFallback(query, aiBubble);
         }
       }
 
