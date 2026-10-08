@@ -347,12 +347,12 @@ Rules:
       if (!backendSuccess) {
         // Tier 2: Direct Google Gemini AI call using embedded key
         let geminiSuccess = false;
-        const candidateModels = ['gemini-3.1-flash-lite', 'gemini-3.8-flash', 'gemma-4-26b-a4b-it'];
+        const candidateModels = ['gemini-flash-lite-latest', 'gemini-flash-latest', 'gemma-4-26b-a4b-it'];
 
         for (const modelName of candidateModels) {
           try {
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 6000);
+            const timeoutId = setTimeout(() => controller.abort(), 8000);
             const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${_KEY}`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -374,7 +374,7 @@ Rules:
                 try {
                   parsed = JSON.parse(cleaned);
                 } catch (pe) {
-                  parsed = { sql: "-- Custom Spark SQL\\nSELECT current_display_name, career_kd_ratio, career_avg_acs FROM valorant.gold.gold_player_overall_summary;", coach_directive: rawText };
+                  parsed = { sql: "-- Custom Spark SQL\nSELECT current_display_name, career_kd_ratio, career_avg_acs FROM valorant.gold.gold_player_overall_summary;", coach_directive: rawText };
                 }
 
                 aiBubble.innerHTML = `
@@ -413,7 +413,11 @@ Rules:
       let sql = "";
       let tableHtml = "";
 
-      if (q.includes("sentinel") || q.includes("sentine") || q.includes("anchor") || q.includes("killjoy") || q.includes("cypher") || q.includes("sage") || q.includes("chamber")) {
+      if (q.includes("model") || q.includes("who are you") || q.includes("what is this") || q.includes("what ai") || q.startsWith("hi") || q.startsWith("hello") || q.includes("hey")) {
+        directive = "🤖 Valorant Tactical AI Assistant:\n• Architecture: Powered by Google Gemini (gemini-flash-lite) interfaced directly with Databricks Gold Lakehouse tables.\n• Catalog: `valorant.gold` analyzing all 275+ competitive matches.\n• Capability: I translate natural language team strategy questions into Spark SQL and actionable tactical coaching directives.\n• Try asking: \"Who is our top duelist?\", \"Compare Agamemnon and systemctl\", or \"Which map is best for Killjoy?\".";
+        sql = "-- Databricks Lakehouse Catalog: valorant, Schema: gold\nSELECT table_name FROM valorant.information_schema.tables WHERE table_schema = 'gold';";
+        tableHtml = "";
+      } else if (q.includes("sentinel") || q.includes("sentine") || q.includes("anchor") || q.includes("killjoy") || q.includes("cypher") || q.includes("sage") || q.includes("chamber")) {
         directive = "🛡️ Sentinel Hierarchy & Site Anchor Analysis:\n• NoSheat#6917 is our highest-impact Sentinel, boasting an exceptional 57.6% win rate across 203 matches.\n• Agamemnon#Lord is our primary Killjoy anchor with 139 matches played and a 55.2% win rate, excelling at lockdown and delay.\n• systemctl start#4575 provides flex Cypher utility with a 57.1% win rate over 42 matches.\n• Tactical Directive: Lock Killjoy for Agamemnon on Haven and Ascent; pair with NoSheat on Split for impenetrable site holds.";
         sql = "SELECT current_display_name, agent_name, matches_played, matches_won, agent_win_pct, kd_ratio, avg_acs FROM valorant.gold.gold_agent_performance WHERE agent_role = 'Sentinel' ORDER BY matches_played DESC LIMIT 5;";
         tableHtml = renderHtmlTable([
